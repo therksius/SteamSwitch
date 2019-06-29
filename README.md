@@ -38,7 +38,7 @@ For a full list of options read here: https://developer.valvesoftware.com/wiki/C
 
 So, for example, if you wanted to create a shortcut that started Steam as "FunFrank" in offline and Big Picture mode, you would create a shortcut to this target:
 ```
-"X:\Path_To_Application\SteamSwitch.exe" /autoLogin=FunFrank /offline -tenfoot
+X:\Path_To_Application\SteamSwitch.exe /autoLogin=FunFrank /offline -tenfoot
 ```
 
 Any and all data stored by the application is in AppData, so if you want to "uninstall" then just delete SteamSwitch.exe and any files in the following folder:
