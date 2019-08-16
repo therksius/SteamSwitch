@@ -26,6 +26,7 @@ There is also a button in the Extra Options to reload avatars. This simply delet
 * /AutoLogin=USERNAME -- Auto logs in the user, kind of defeats the purpose of the application but could be useful for some.
 * /Offline -- Sets connection mode to Offline by default.
 * /Online -- Sets connection mode to Online by default.
+* /Extra -- Starts UI with extra options revealed.
 
 Any other command line options will be passed through to Steam itself.
 

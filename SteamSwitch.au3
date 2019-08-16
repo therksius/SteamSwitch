@@ -4,7 +4,7 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.4.0.1
+#AutoIt3Wrapper_Res_Fileversion=1.4.0.2
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch1.ico
 #AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch2.ico
@@ -36,7 +36,7 @@ Main()
 Func Main()
 	Local Enum $LI_USER, $LI_GETAV, $LI_PIC, $LI_BTN
 	Local $aUsers, $sUserCheck, $iUserCnt, $aUserList[1][4], $iSteamPID, $sAvatarCheck, $iCheckAvs, $sCmdPassthru, $bNoNumbers = False, $sAutoLogin, _
-		$aWinOffset, $iAvatarSize = 64, $iMeasureWidth = 210, $iMeasureHeight = 0, $iExpandedSize, $aCtrlPos, $sButtonText, $iOfflineMode = 0, $bExpanded = False, _
+		$aWinOffset, $iAvatarSize = 64, $iMeasureWidth = 210, $iMeasureHeight = 0, $iExpandedSize, $aCtrlPos, $sButtonText, $iOfflineMode = 0, $bAutoExpand = False, _
 		$hGUIParent, $hGUIMain, $aRange[2], $bt_AddMore, $bt_Extra, $aExtraCtrls[2], $ra_OfflineDef, $ra_OfflineNo, $ra_OfflineYes, $bt_ReloadAvatars, $lb_Help, $aAccel, _
 		$hGUIWait, $lb_Wait, $GM
 
@@ -56,6 +56,7 @@ Func Main()
 		/nonumbers
 		/offline
 		/online
+		/extra
 	#ce
 
 	If $CmdLine[0] Then
@@ -70,6 +71,8 @@ Func Main()
 				$iOfflineMode = 1
 			ElseIf $CmdLine[$i] = '/offline' Then
 				$iOfflineMode = 2
+			ElseIf $CmdLine[$i] = '/extra' Then
+				$bAutoExpand = True
 			Else
 				If StringInStr($CmdLine[$i], ' ') Then
 					$CmdLine[$i] = '"' & $CmdLine[$i] & '"'
@@ -170,7 +173,6 @@ Func Main()
 
 	Local $aAccel = [ [ '{f1}', $lb_Help ] ]
 	GUISetAccelerators($aAccel)
-	GUISetState()
 
 	#endregion
 	; =============================
@@ -181,6 +183,17 @@ Func Main()
 	GUICtrlCreateIcon($CFG_PATH & 'Waiting.ani', 0, (200-32)/2, 40, 32, 32)
 
 	GUICtrlSetState($bt_AddMore, $GUI_FOCUS)
+
+	If $bAutoExpand Then
+		$bAutoExpand = False
+		GUICtrlSetState($bt_Extra, $GUI_HIDE)
+		For $i = $aExtraCtrls[0] To $aExtraCtrls[1]
+			GUICtrlSetState($i, $GUI_SHOW)
+		Next
+		WinMove($hGUIMain, '', Default, Default, Default, $iExpandedSize + $aWinOffset[1])
+	EndIf
+
+	GUISetState(@SW_SHOWNORMAL, $hGUIMain)
 
 	While WinActive($hGUIMain)
 		; Fill out missing avatars after list load
@@ -335,7 +348,7 @@ Func _SteamConfig($sConfigPath, $sUser, $bOffline)
 EndFunc
 
 Func _Help($hMain)
-	Local $hGUI = GUICreate('Help -- v' & FileGetVersion(@ScriptFullPath), 400, 300, Default, Default, BitOR($WS_CAPTION, $WS_SYSMENU, $WS_SIZEBOX), Default, $hMain), $GM, _
+	Local $hGUIHelp = GUICreate('Help -- v' & FileGetVersion(@ScriptFullPath), 400, 300, Default, Default, BitOR($WS_CAPTION, $WS_SYSMENU, $WS_SIZEBOX), Default, $hMain), $GM, _
 	$sHelpDoc = 'Welcome to Steam Switch!' & @CRLF & _
 		@CRLF & _
 		'    This application lets you switch Steam profiles/logins without having to retype your password all the time, so long as you''ve normally logged in at least once before.' & @CRLF & _
@@ -359,6 +372,7 @@ Func _Help($hMain)
 		'    /AutoLogin=USERNAME -- Auto logs in the user, kind of defeats the purpose of the application but could be useful for some.' & @CRLF & _
 		'    /Offline -- Sets connection mode to Offline by default.' & @CRLF & _
 		'    /Online -- Sets connection mode to Online by default.' & @CRLF & _
+		'    /Extra -- Start UI with extra options revealed.' & @CRLF & _
 		@CRLF & _
 		'Any other command line parameters will be passed on to Steam itself. Some handy options are:' & @CRLF & _
 		'    -silent -- Suppresses the dialog box that opens when you start steam.' & @CRLF & _
@@ -377,25 +391,25 @@ Func _Help($hMain)
 	GUICtrlCreateEdit($sHelpDoc, 0, 0, 400, 300, BitOR($ES_WANTRETURN, $WS_VSCROLL, $ES_AUTOVSCROLL, $ES_READONLY))
 		GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
 	GUISetState()
-	ControlSend($hGUI, '', 'Edit1', '^{home}')
+	ControlSend($hGUIHelp, '', 'Edit1', '^{home}')
 
 	Do
 		$GM = GUIGetMsg()
 	Until $GM = $GUI_EVENT_CLOSE
-	GUIDelete($hGUI)
+	GUIDelete($hGUIHelp)
 EndFunc
 
 Func _AddUsers($hMain, $sPrefill)
-	Local $hGUI, $ed_Users, $bt_OK, $bt_Cancel, $GM, $aContent[2], $hFile
+	Local $hGUIAdd, $ed_Users, $bt_OK, $bt_Cancel, $GM, $aContent[2], $hFile
 
-	$hGUI = GUICreate('Add Users', 200, 200, Default, Default, $WS_CAPTION, Default, $hMain)
+	$hGUIAdd = GUICreate('Add Users', 200, 200, Default, Default, $WS_CAPTION, Default, $hMain)
 	GUICtrlCreateLabel(' One user per line:', 0, 0, 200, 20, $SS_CENTERIMAGE)
 	$ed_Users = GUICtrlCreateEdit(StringReplace(StringStripWS($sPrefill, 3), ' ', @CRLF), 0, 20, 200, 155)
 	$bt_OK = GUICtrlCreateButton('&OK', 80, 175, 60, 25)
 	$bt_Cancel = GUICtrlCreateButton('Cancel', 140, 175, 60, 25)
 	GUISetState()
 
-	ControlSend($hGUI, '', $ed_Users, '^{end}')
+	ControlSend($hGUIAdd, '', $ed_Users, '^{end}')
 
 	While 1
 		$GM = GUIGetMsg()
@@ -410,12 +424,12 @@ Func _AddUsers($hMain, $sPrefill)
 					If $hFile <> -1 Then
 						FileWrite($hFile, $aContent[0])
 						FileClose($hFile)
-						GUIDelete($hGUI)
+						GUIDelete($hGUIAdd)
 						GUISetState(@SW_HIDE, $hMain)
 						Run(@AutoItExe & ' ' & $CmdLineRaw)
 						Exit
 					Else
-						MsgBox(0x2010, 'Error', 'Cannot write to config file:' & @LF & $CFG_FILE, 0, $hGUI)
+						MsgBox(0x2010, 'Error', 'Cannot write to config file:' & @LF & $CFG_FILE, 0, $hGUIAdd)
 					EndIf
 					ExitLoop
 				EndIf
@@ -423,7 +437,7 @@ Func _AddUsers($hMain, $sPrefill)
 				ExitLoop
 		EndSwitch
 	WEnd
-	GUIDelete($hGUI)
+	GUIDelete($hGUIAdd)
 EndFunc
 
 Func _GetWinOffset($hWnd)
