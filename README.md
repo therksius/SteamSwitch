@@ -21,11 +21,12 @@ If you want Steam to start in offline mode (or conversely online mode if it was 
 There is also a button in the Extra Options to reload avatars. This simply deletes all the stored avatars then relaunches the application which then re-downloads them.
 
 ### Command line options:
-* /NoNumbers -- Removes the prefixed shortcut numbers on each username.
 * /AvatarSize=## -- Sets the size of the avatars displayed (Also adjusts username text size; default is 64).
-* /AutoLogin=USERNAME -- Auto logs in the user, kind of defeats the purpose of the application but could be useful for some.
+* /AutoLogin=USERNAME -- Auto logs in the user, useful for shortcuts.
 * /Offline -- Sets connection mode to Offline by default.
 * /Online -- Sets connection mode to Online by default.
+* /NoNumbers -- Removes the prefixed shortcut numbers on each username.
+* /AtMouse -- Starts UI centered on mouse position.
 * /Extra -- Starts UI with extra options revealed.
 
 Any other command line options will be passed through to Steam itself.
