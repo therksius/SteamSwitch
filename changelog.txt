@@ -1,0 +1,11 @@
+v1.5 changes:
+	Added context menu for user buttons (start offline/online, reload avatar)
+	Added tab pages when user buttons take up too much space (scrollwheel changes tabs)
+	Updated images used for default (downloading) and missing avatars
+	Changed avatar downloading procedure
+	Show extra options at top of window when Steam is running
+	Moved Steam shutdown code out of _SteamLogin into new function (_SteamClose)
+	Enforced max window dimensions (about 80% width, 70% height)
+	Renamed some variables, moved some into global scope (needed for outside functions)
+	Added lots of commentary (plan to add more)
+	Changed config folder structure. Put avatars in their own subfolder (easier to clear/reload), changed userlist filename
