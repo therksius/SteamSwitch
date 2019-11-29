@@ -15,4 +15,5 @@ v1.5 changes:
 - Changed _SteamConfig function. Now using StringRegExpReplace to adjust values rather than discarding/rewriting sections of the config.
 - Run _SteamConfig on every launch to ensure Timestamp value is always current (theoretically preventing password expiration).
 - Warn if _SteamConfig fails (could not find user in file, or could not write to file: loginusers.vdf).
+- Added short aliases for command line options (/online = /on, /atMouse = /am, etc. see readme).
 - Added lots of commentary (pretty much all commented now I think).
