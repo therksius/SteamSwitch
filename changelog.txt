@@ -1,11 +1,15 @@
 v1.5 changes:
 	Added context menu for user buttons (start offline/online, reload avatar)
-	Added tab pages when user buttons take up too much space (scrollwheel changes tabs)
+	Added tab pages when user buttons take up too much space (scrollwheel can change tabs)
 	Updated images used for default (downloading) and missing avatars
-	Changed avatar downloading procedure
-	Show notice with options at top of window when Steam is running
+	Added method to search for avatar if user doesn't have Custom URL set in their profile
+	Changed avatar downloading procedure (now downloads in background, not making main app hang)
+	Added individual avatar reload capability, also changed the procedure for avatar reload
+	Show banner with context menu at top of window when Steam is running
 	Moved Steam shutdown code out of _SteamLogin into new function (_SteamClose)
 	Enforced max window dimensions (about 80% width, 70% height)
 	Changed config folder structure. Put avatars in their own subfolder (easier to clear/reload), changed userlist filename
 	Renamed some variables, moved some into global scope (needed for outside functions)
-	Added lots of commentary (plan to add more)
+	Update Steam config (loginusers.vdf) on every launch to ensure Timestamp value is always current (theoretically preventing password timeout)
+	Warn if Steam config write/edit fails
+	Added lots of commentary (pretty much all commented now I think)
