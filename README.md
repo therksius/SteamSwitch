@@ -44,9 +44,7 @@ If you want to manually set an avatar, open the storage folder (Click the "Open 
 - /in, /Indicator -- Size of the offline/online indicator (red/green underline of each username; default 2; set to 0 to hide).
 - /ex, /Extra -- Starts UI with Extra Options panel revealed.
 
-Any other command line parameters will be passed on to Steam itself.
-
-Some handy options are:
+Any other command line parameters will be passed on to Steam itself. Some handy options are:
 * -silent -- Suppresses the dialog box that opens when you start steam.
 * -tenfoot -- Start Steam in Big Picture Mode.
 * -noverifyfiles -- Prevents the client from checking files integrity.
