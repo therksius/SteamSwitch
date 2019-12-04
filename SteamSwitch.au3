@@ -4,7 +4,7 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5.1.1
+#AutoIt3Wrapper_Res_Fileversion=1.5.1.2
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Run_Before=IF "%fileversion%" NEQ "" COPY "%in%" "%scriptdir%\%scriptfile% (v%fileversion%).au3"
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
