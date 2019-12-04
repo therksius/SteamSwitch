@@ -74,6 +74,7 @@ Any and all data stored by the application is in an AppData subfolder, so if you
 
 - Forgot to test the deferred pic creation with tabs, doesn't work properly, so just removed it.
 - Added config migration (whoops, forgot to include with v1.5).
+- Fixed bug with avatar download which would ignore profile page avatar and try the search page.
 - Changed "Add/Edit Users" to "Manage Users".
 - Change unfocused auto-close. Was getting too many erroneous exits. Now waits 100ms before closing.
 - Changed all child GUI handles to static vars and hide/show instead of deleting/creating every time.
