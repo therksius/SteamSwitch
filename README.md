@@ -1,6 +1,6 @@
 # Welcome to Steam Switch!
 
-This application lets you login to different Steam accounts without having to re-enter your password. It only requires that you've logged in at least once before (and told Steam to remember your password).
+This application lets you login/**switch** to different Steam accounts without having to re-enter your password. It only requires that you've logged in at least once before (and told Steam to remember your password).
 
 This application doesn't ask for or store your passwords, it relies on Steam's password memory. Theoretically you will only have to re-enter your password if you manually sign out of Steam or it's settings get lost or changed. I have personally used the app for months without having to re-enter a password.
 
