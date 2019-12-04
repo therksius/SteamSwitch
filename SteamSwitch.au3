@@ -4,16 +4,13 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5
+#AutoIt3Wrapper_Res_Fileversion=1.5.1.2
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch1.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch2.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch3.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch4.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch5.ico
 #AutoIt3Wrapper_Run_Before=IF "%fileversion%" NEQ "" COPY "%in%" "%scriptdir%\%scriptfile% (v%fileversion%).au3"
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
+#include <WinAPISys.au3>
+#include <WinAPIProc.au3>
 #include <GUIConstantsEx.au3>
 #include <WindowsConstants.au3>
 #include <StaticConstants.au3>
@@ -24,18 +21,20 @@
 #include <GuiMenu.au3>
 #include <Date.au3>
 
-#include <Json.au3> ; https://www.autoitscript.com/forum/topic/148114-a-non-strict-json-udf-jsmn/
+#include 'Json.au3' ; https://www.autoitscript.com/forum/topic/148114-a-non-strict-json-udf-jsmn/
 
 Opt('MustDeclareVars', 1)
 
+Global Const $DEBUG = False
 Global Const $STEAM_REG = 'HKCU\Software\Valve\Steam'
-Global Const $STEAM_EXE = RegRead($STEAM_REG, 'SteamExe')
-Global Const $STEAM_PATH = RegRead($STEAM_REG, 'SteamPath')
+Global Const $STEAM_EXE = StringReplace(RegRead($STEAM_REG, 'SteamExe'), '/', '\')
+Global Const $STEAM_PATH = StringReplace(RegRead($STEAM_REG, 'SteamPath'), '/', '\')
 Global Const $STEAM_CFG_PATH = $STEAM_PATH & '\config\loginusers.vdf'
 Global Const $REG_USERNAME = 'AutoLoginUser'
 Global Const $REG_REMPASS = 'RememberPassword'
 Global Const $CURR_USER = RegRead($STEAM_REG, $REG_USERNAME)
 Global Const $CFG_PATH = @AppDataDir & '\therkSoft\SteamSwitch\'
+Global Const $HELP_FILE = $CFG_PATH & 'help.txt'
 Global Const $USERS_FILE = $CFG_PATH & 'userlist.cfg'
 Global Const $WAIT_ANIM = $CFG_PATH & 'waiting.ani'
 Global Const $AVATAR_PATH = $CFG_PATH & 'avatars\'
@@ -43,15 +42,22 @@ Global Const $NO_AVATAR = $AVATAR_PATH & '.none.gif'
 Global Const $DEFAULT_AV = $AVATAR_PATH & '.default.gif'
 Global Const $MAX_WIDTH = Int(@DesktopWidth *.8)
 Global Const $MAX_HEIGHT = Int(@DesktopHeight * 0.7)
-Global Const $DOWNLOAD_PARAM = '/_DownloadAvatars'
+Global Const $UNFOCUS_TIMEOUT = 100
+Global Const $DOWNLOAD_PARAM = '/download'
 
 Global $WMG_HMAIN, $WMG_TAB, $WMG_ME_MENU, $WMG_MI_TITLE, $WMG_MI_ONLINE, $WMG_MI_OFFLINE ; Window Message Globals
-Global Enum $UL_USER, $UL_AVATAR, $UL_DOWNLOAD, $UL_PIC_CTRL, $UL_BTN_CTRL, $UL_UBOUND
+Global Enum $UL_USER, $UL_ISOFFLINE, $UL_AVATAR, $UL_DOWNLOAD, $UL_PIC_CTRL, $UL_BTN_CTRL, $UL_LBL_OFFLINE, $UL_UBOUND
 Global $USER_LIST[1][$UL_UBOUND]
 
 Main()
 
 Func Main()
+	Local $aUsernames, $sUsersFiltered, $aTabRect, $iButtonMax, $iButtonPos, $aWinOffset, $aGetPos, $iActiveTimeout, $sDownloadList, $aRegEx, _
+		$iOfflineMode = 0, $bDoNumbers, $vCenterAt = 'screen', $bAutoExpand, $iAvatarSize = 64, $iOfflineBorder = 2, $sAutoLogin, $sCmdPassthru, _ ; Param vars
+		$sButtonText, $sOfflineText, $aAccel, $iTrackWidth = 250, $iTrackHeight = 0, $iWinWidth, $iWinHeight, $iWinHeightExpand, _
+		$bt_Banner, $cm_Banner, $mi_OpenSteam, $mi_CloseSteam, $mi_GoOnline, $mi_GoOffline, $mi_ReloadAvatar, $aRange_UserBtns[2], _ ; GUI vars
+		$bt_AddMore, $bt_Extra, $aRange_ExtraCtrls[2], $ra_OfflineDef, $ra_OfflineNo, $ra_OfflineYes, $bt_ReloadAvatars, $bt_AvatarFolder, $lb_Help, $GM
+
 	; Cannot find steam installation so quit
 	If Not $STEAM_EXE Then
 		Exit @ScriptLineNumber+0*MsgBox(0x10, 'SteamSwitch', 'Could not read Steam registry key.' & @LF & 'Please ensure Steam has been installed and started at least once before using this program.')
@@ -60,22 +66,18 @@ Func Main()
 	; Create appdata folders
 	If Not FileExists($AVATAR_PATH) Then DirCreate($AVATAR_PATH)
 
+	_Migrate() ; Migrate old config files to new locations
+
 	; Install waiting animation and default avatar
-	FileInstall('Waiting.ani', $WAIT_ANIM, 1)
+	FileInstall('help.txt', $HELP_FILE, 1)
 	FileInstall('SteamSwitch_None.gif', $NO_AVATAR)
 	FileInstall('SteamSwitch_Default.gif', $DEFAULT_AV)
 
-	; Run downloader and exit
+	; Run downloader and exit. Has to be after FileInstall lines to make sure default avatars get replaced after a full avatar reload.
 	If $CmdLine[0] And $CmdLine[1] = $DOWNLOAD_PARAM Then Exit @ScriptLineNumber+0*_DownloadAvatars()
 
-	Local $aUsernames, $sUsersFiltered, $aTabRect, $iButtonMax, $iButtonPos, $iSteamPID, $aWinOffset, $aWinGetPos, _
-		$sDownloadList, $sCmdPassthru, $bNoNumbers, $bAutoExpand, $sAutoLogin, $iAvatarSize = 64, $vCenterAt = 'screen', _
-		$iTrackWidth = 210, $iTrackHeight = 0, $iWinWidth, $iWinHeight, $iWinHeightExpand, $aCtrlPos, $sButtonText, $iOfflineMode = 0, $aAccel, _
-		$hGUIParent, $bt_Banner, $cm_Banner, $mi_OpenSteam, $mi_CloseSteam, $mi_GoOnline, $mi_GoOffline, $mi_ReloadAvatar, $aRange_UserBtns[2], _
-		$bt_AddMore, $bt_Extra, $aRange_ExtraCtrls[2], $aRange_PicCtrls[2], $ra_OfflineDef, $ra_OfflineNo, $ra_OfflineYes, $bt_ReloadAvatars, $lb_Help, $GM
-
 	; Command line switches:
-	; /avatarSize=##, /autoLogin=username, /noNumbers, /offline, /online, /extra, /atMouse
+	; /online, /offline, /doNumbers, /atMouse, /extra, /avatarSize=##, /indicator=##, /autoLogin=username
 	If $CmdLine[0] Then
 		For $i = 1 To $CmdLine[0]
 			Switch $CmdLine[$i]
@@ -83,38 +85,50 @@ Func Main()
 					$iOfflineMode = 1
 				Case '/offline', '/of'
 					$iOfflineMode = 2
-				Case '/noNumbers', '/nn'
-					$bNoNumbers = True
+				Case '/doNumbers', '/dn'
+					$bDoNumbers = True
 				Case '/atMouse', '/am'
 					$vCenterAt = 'mouse'
 				Case '/extra', '/ex'
 					$bAutoExpand = True
 				Case Else
-					If StringInStr($CmdLine[$i], '/avatarSize=') = 1 Or StringInStr($CmdLine[$i], '/as=') = 1 Then
-						$iAvatarSize = Int(StringSplit($CmdLine[$i], '=')[2])
-					ElseIf StringInStr($CmdLine[$i], '/autoLogin=') = 1 Or StringInStr($CmdLine[$i], '/al=') = 1 Then
-						$sAutoLogin = StringSplit($CmdLine[$i], '=')[2]
-					Else
-						; Any command that isn't interpreted by this app gets passed through to Steam
-						If StringInStr($CmdLine[$i], ' ') Then
-							$CmdLine[$i] = '"' & $CmdLine[$i] & '"'
-						EndIf
-						$sCmdPassthru &= ' ' & $CmdLine[$i]
+					$aRegEx = StringRegExp($CmdLine[$i], '^/(?i:avatarSize|as)=(\d+)', 1)
+					If Not @error Then
+						$iAvatarSize = Int($aRegEx[0])
+						ContinueLoop
 					EndIf
+
+					$aRegEx = StringRegExp($CmdLine[$i], '^/(?i:indicator|in)=(\d+)', 1)
+					If Not @error Then
+						$iOfflineBorder = Int($aRegEx[0])
+						ContinueLoop
+					EndIf
+
+					$aRegEx = StringRegExp($CmdLine[$i], '^/(?i:autoLogin|al)=(.+)', 1)
+					If Not @error Then
+						$sAutoLogin = $aRegEx[0]
+						ContinueLoop
+					EndIf
+
+					; Any command that isn't interpreted by this app gets passed through to Steam
+					If StringInStr($CmdLine[$i], ' ') Then
+						$CmdLine[$i] = '"' & $CmdLine[$i] & '"'
+					EndIf
+					$sCmdPassthru &= ' ' & $CmdLine[$i]
 			EndSwitch
 		Next
 	EndIf
 
 	; Auto login, jump straight to login function and exit
-	If $sAutoLogin Then Exit @ScriptLineNumber+0*_SteamLogin(0, $sAutoLogin, $iOfflineMode, $sCmdPassthru)
+	If $sAutoLogin Then Exit @ScriptLineNumber+0*_SteamLogin($sAutoLogin, $iOfflineMode, $sCmdPassthru)
 
-	Opt('GUIResizeMode', $GUI_DOCKALL) ; Disable control drifting
+	Opt('GUIResizeMode', $GUI_DOCKALL) ; Prevent control drifting
 
 	#region - Get user list and create array
 		$aUsernames = FileReadToArray($USERS_FILE)
 		For $i = 0 To UBound($aUsernames)-1
 			; Filter entries to only valid Steam usernames (alphanumeric, underscore, and minimum 3 char)
-			; This string ($sUsersFiltered) is also used later to pre-fill the Add Users dialog.
+			; This string ($sUsersFiltered) is also used later to pre-fill the Manage Users dialog.
 			If StringRegExp($aUsernames[$i], '^[a-zA-Z0-9_]{3,}$') Then $sUsersFiltered &= $aUsernames[$i] & @LF
 		Next
 		$aUsernames = StringSplit(StringStripWS($sUsersFiltered, 3), @LF)
@@ -129,13 +143,12 @@ Func Main()
 
 	; ====================================================================================================================
 	#region - Build main GUI
-		$hGUIParent = GUICreate('') ; Hidden parent to hide taskbar button
-		$WMG_HMAIN = GUICreate('Steam Switcher  ——  F1 for help', 10, 10, Default, Default, $WS_SYSMENU, $WS_EX_TOPMOST)
+		$WMG_HMAIN = GUICreate('Steam Switcher', 10, 10, Default, Default, $WS_SYSMENU, $WS_EX_TOPMOST)
 
 		; Create context menu that will be used for the user buttons
 		$WMG_ME_MENU = GUICtrlCreateContextMenu(GUICtrlCreateDummy())
 			$WMG_MI_TITLE = GUICtrlCreateMenuItem('-', $WMG_ME_MENU)
-				GUICtrlSetState(-1, BitOR($GUI_DEFBUTTON, $GUI_DISABLE))
+				GUICtrlSetState(-1, $GUI_DEFBUTTON)
 			GUICtrlCreateMenuItem('', $WMG_ME_MENU)
 			$WMG_MI_ONLINE = GUICtrlCreateMenuItem('Start O&nline', $WMG_ME_MENU)
 			$WMG_MI_OFFLINE = GUICtrlCreateMenuItem('Start O&ffline', $WMG_ME_MENU)
@@ -143,26 +156,26 @@ Func Main()
 		GUIRegisterMsg($WM_CONTEXTMENU, WM_CONTEXTMENU)
 
 		; Show banner if Steam is running
-		If ProcessExists('steam.exe') Then
-			$bt_Banner = GUICtrlCreateButton('Steam running as ' & $CURR_USER & ' (' & (_SteamCheckOffline($CURR_USER) ? 'Offline' : 'Online') & ')', 0, 0, 10, 25)
+		If _SteamPID() Then
+			$bt_Banner = GUICtrlCreateButton('&Steam running as ' & $CURR_USER & (_SteamCheckOffline($CURR_USER) ? ' (Offline)' : ''), 0, 0, 10, 25)
 				GUICtrlSetFont(-1, 11, 700)
 				GUICtrlSetBkColor(-1, 0x1a3f56)
 				GUICtrlSetColor(-1, 0x66c0f4)
 				GUICtrlSetCursor(-1, 0)
-				GUICtrlSetTip(-1, 'Click for options')
+				GUICtrlSetTip(-1, 'Click for menu (Ctrl+S)')
+			$iTrackHeight = 25
 
 			; Banner context menu
 			$cm_Banner = GUICtrlCreateContextMenu($bt_Banner)
-				$mi_OpenSteam  = GUICtrlCreateMenuItem('Open Steam',  $cm_Banner)
-				$mi_CloseSteam = GUICtrlCreateMenuItem('Close Steam', $cm_Banner)
-
 			; If current profile is offline show the Online button and vice versa
-			If _SteamCheckOffline($CURR_USER) Then
-				$mi_GoOnline   = GUICtrlCreateMenuItem('Go Online',   $cm_Banner)
-			Else
-				$mi_GoOffline  = GUICtrlCreateMenuItem('Go Offline',  $cm_Banner)
-			EndIf
-			$iTrackHeight = 25
+				$mi_OpenSteam  = GUICtrlCreateMenuItem('&Open Steam Window',  $cm_Banner)
+				$mi_CloseSteam = GUICtrlCreateMenuItem('&Close Steam', $cm_Banner)
+				GUICtrlCreateMenuItem('',  $cm_Banner)
+				If _SteamCheckOffline($CURR_USER) Then
+					$mi_GoOnline   = GUICtrlCreateMenuItem('Restart O&nline',   $cm_Banner)
+				Else
+					$mi_GoOffline  = GUICtrlCreateMenuItem('Restart O&ffline',  $cm_Banner)
+				EndIf
 		EndIf
 
 		$iButtonMax = $aUsernames[0]
@@ -180,52 +193,61 @@ Func Main()
 		EndIf
 		$iButtonPos = $iTrackHeight
 
-		GUISetFont($iAvatarSize * 0.375) ; Default font (for buttons) proportional to the avatar size
-		$aRange_UserBtns[0] = GUICtrlCreateDummy() ; Start control range for user buttons
-		For $i = 1 To $aUsernames[0]
-			If Mod($i, $iButtonMax) == 1 Then
-				GUICtrlCreateTabItem('Tab ' & Ceiling($i/$iButtonMax) & '/' & Ceiling($aUsernames[0]/$iButtonMax))
-				$iButtonPos = $iTrackHeight
-			EndIf
-			$USER_LIST[$i][$UL_USER] = $aUsernames[$i] ; Store username in array
+		; ====================================================================================================================
+		#region - User buttons
+			GUISetFont($iAvatarSize * 0.375) ; Default font (for buttons) proportional to the avatar size
+			$aRange_UserBtns[0] = GUICtrlCreateDummy() ; Start control range for user buttons
+			For $i = 1 To $aUsernames[0]
+				If Mod($i, $iButtonMax) == 1 Then
+					GUICtrlCreateTabItem('Tab ' & Ceiling($i/$iButtonMax) & '/' & Ceiling($aUsernames[0]/$iButtonMax))
+					$iButtonPos = $iTrackHeight
+				EndIf
+				$USER_LIST[$i][$UL_USER] = $aUsernames[$i] ; Store username in array
+				$USER_LIST[$i][$UL_ISOFFLINE] = _SteamCheckOffline($aUsernames[$i]) ; Store offline mode status
 
-			; Check for user avatars
-			$USER_LIST[$i][$UL_AVATAR] = _Avatar($aUsernames[$i])
-			If @error Then
-				; If no avatar found, flag as needing to be downloaded...
-				$USER_LIST[$i][$UL_DOWNLOAD] = True
-				; ... and add the name to a download list
-				$sDownloadList &= ' ' & $USER_LIST[$i][$UL_USER]
-			EndIf
-			; This "deferred" function stores the Pic control data to be created later. This allows the arrow keys to cycle through the user buttons.
-			$USER_LIST[$i][$UL_PIC_CTRL] = _DeferredGUICtrlCreatePic($USER_LIST[$i][$UL_AVATAR], 0, $iButtonPos, $iAvatarSize, $iAvatarSize)
+				; Check for user avatars
+				$USER_LIST[$i][$UL_AVATAR] = _Avatar($aUsernames[$i])
+				If @error Then
+					; If no avatar found, flag as needing to be downloaded...
+					$USER_LIST[$i][$UL_DOWNLOAD] = True
+					; ... and add the name to a download list
+					$sDownloadList &= ' ' & $USER_LIST[$i][$UL_USER]
+				EndIf
+				$USER_LIST[$i][$UL_PIC_CTRL] = GUICtrlCreatePic($USER_LIST[$i][$UL_AVATAR], 0, $iButtonPos, $iAvatarSize, $iAvatarSize)
 
-			; Display (or not) prefix numbers for buttons
-			If $bNoNumbers Then
-				$sButtonText = ' ' & $aUsernames[$i] & ' '
-			Else
-				$sButtonText = ($i < 10 ? ' &' & $i : ($i = 10 ? ' 1&0' : ' ' & $i)) & ': ' & $aUsernames[$i]
-			EndIf
+				$sButtonText = ' ' & $aUsernames[$i]
+				; Add prefix numbers to buttons
+				If $bDoNumbers Then
+					$sButtonText = ($i < 10 ? ' &' & $i : ($i = 10 ? ' 1&0' : ' ' & $i)) & ':' & $sButtonText
+				EndIf
 
-			$USER_LIST[$i][$UL_BTN_CTRL] = GUICtrlCreateButton($sButtonText, $iAvatarSize, $iButtonPos, Default, $iAvatarSize, BitOR($BS_FLAT, $BS_LEFT))
-				GUICtrlSetTip(-1, 'Right-click for more options')
-				$iButtonPos += $iAvatarSize
+				$sOfflineText = 'Start in ' & ($USER_LIST[$i][$UL_ISOFFLINE] ? 'Off' : 'On') & 'line mode by default'
+				$USER_LIST[$i][$UL_BTN_CTRL] = GUICtrlCreateButton($sButtonText, $iAvatarSize, $iButtonPos, Default, $iAvatarSize, BitOR($BS_FLAT, $BS_LEFT))
+					GUICtrlSetTip(-1, $sOfflineText & @LF & 'Right-click for options')
 
-			; Measure button width, and track the largest
-			$aCtrlPos = ControlGetPos($WMG_HMAIN, '', $USER_LIST[$i][$UL_BTN_CTRL])
-			$iTrackWidth = $iTrackWidth < $aCtrlPos[2] ? $aCtrlPos[2] : $iTrackWidth
-		Next
-		$aRange_UserBtns[1] = GUICtrlCreateDummy() ; End user button range
+				$USER_LIST[$i][$UL_LBL_OFFLINE] = GUICtrlCreateLabel('', 0, $iButtonPos+$iAvatarSize, Default, $iOfflineBorder)
+					GUICtrlSetFont(-1, 8, 700)
+					GUICtrlSetTip(-1, $sOfflineText)
+					GUICtrlSetBkColor(-1, $USER_LIST[$i][$UL_ISOFFLINE] ? 0xff0000 : 0xff00)
+					$iButtonPos += $iAvatarSize + $iOfflineBorder
+
+				; Measure button width, and track the largest
+				$aGetPos = ControlGetPos($WMG_HMAIN, '', $USER_LIST[$i][$UL_BTN_CTRL])
+				$iTrackWidth = $iTrackWidth < $aGetPos[2] ? $aGetPos[2] : $iTrackWidth
+			Next
+			$aRange_UserBtns[1] = GUICtrlCreateDummy() ; End user button range
+		#endregion
+		; ====================================================================================================================
 
 		; Snap width to 90% of screen width
 		If $iTrackWidth + $iAvatarSize > $MAX_WIDTH Then $iTrackWidth = $MAX_WIDTH - $iAvatarSize
+		$iWinWidth = $iTrackWidth + $iAvatarSize ; Add avatar size to button width, we'll be using this to size the rest of the window
 
 		; Set all the button widths to be equal to the largest
 		For $i = 1 To $aUsernames[0]
 			GUICtrlSetPos($USER_LIST[$i][$UL_BTN_CTRL], Default, Default, $iTrackWidth)
+			GUICtrlSetPos($USER_LIST[$i][$UL_LBL_OFFLINE], Default, Default, $iWinWidth)
 		Next
-
-		$iWinWidth = $iTrackWidth + $iAvatarSize ; Add avatar size to button width, we'll be using this to size the rest of the window
 
 		; Resize the banner button
 		GUICtrlSetPos($bt_Banner, Default, Default, $iWinWidth)
@@ -237,14 +259,16 @@ Func Main()
 			GUIRegisterMsg($WM_MOUSEWHEEL, WM_MOUSEWHEEL)
 		EndIf
 
-		$iTrackHeight += $iButtonMax * $iAvatarSize ; Add on the user buttons to the height tracker.
+		$iTrackHeight += $iButtonMax * ($iAvatarSize + $iOfflineBorder) ; Add on the user buttons to the height tracker.
 
 		GUISetFont(9) ; Reset font to a regular size
 
-		$bt_AddMore = GUICtrlCreateButton('&Add/Edit Users', 0, $iTrackHeight, $iWinWidth, 25)
+		$bt_AddMore = GUICtrlCreateButton('M&anage Users', 0, $iTrackHeight, $iWinWidth, 25)
+			GUICtrlSetTip(-1, 'Ctrl+A')
 			$iTrackHeight += 25
 
 		$bt_Extra = GUICtrlCreateButton('E&xtra Options', 0, $iTrackHeight, $iWinWidth, 20)
+			GUICtrlSetTip(-1, 'Ctrl+X')
 			GUICtrlSetFont(-1, 8)
 			$iTrackHeight += 20
 
@@ -266,7 +290,9 @@ Func Main()
 					$iTrackHeight += 25
 					GUICtrlSetState($ra_OfflineDef + $iOfflineMode, $GUI_CHECKED) ; Use $iOfflineMode to determine default-checked radio control
 
-				$bt_ReloadAvatars = GUICtrlCreateButton('&Reload Avatars', 5, $iTrackHeight, $iWinWidth-10, 25)
+				$bt_ReloadAvatars = GUICtrlCreateButton('&Reload Avatars', 5, $iTrackHeight, ($iWinWidth-10)/2, 25)
+					GUICtrlSetTip(-1, 'Ctrl+R')
+				$bt_AvatarFolder = GUICtrlCreateButton('&Open Avatar Folder', 5+($iWinWidth-10)/2, $iTrackHeight, ($iWinWidth-10)/2, 25)
 					$iTrackHeight += 25
 
 				$lb_Help = GUICtrlCreateLabel('Version: ' & FileGetVersion(@ScriptFullPath), 0, $iTrackHeight, $iWinWidth, 10, $SS_CENTER)
@@ -278,18 +304,14 @@ Func Main()
 		; ====================================================================================================================
 		$iWinHeightExpand = $iTrackHeight ; Record height after extra controls for expanded window
 
-		; Create deferred pic controls now
-		$aRange_PicCtrls[0] = GUICtrlCreateDummy()
-		For $i = 1 To $USER_LIST[0][0]
-			$USER_LIST[$i][$UL_PIC_CTRL] = _DeferredGUICtrlCreatePic($USER_LIST[$i][$UL_PIC_CTRL])
-		Next
-		$aRange_PicCtrls[1] = GUICtrlCreateDummy()
-
 		For $i = $aRange_ExtraCtrls[0] To $aRange_ExtraCtrls[1]
 			GUICtrlSetState($i, $GUI_HIDE) ; Hide the extra controls
 		Next
 
-		Dim $aAccel = [ [ '{f1}', $lb_Help ] ]
+		Local $dm_TabUp = GUICtrlCreateDummy()
+		Local $dm_TabDn = GUICtrlCreateDummy()
+
+		Dim $aAccel = [ [ '{f1}', $lb_Help ], [ '{pgdn}', $dm_TabDn ], [ '{pgup}', $dm_TabUp ], [ '^a', $bt_AddMore ], [ '^x', $bt_Extra ], [ '^s', $bt_Banner ], [ '^r', $bt_ReloadAvatars ], [ '^f', $bt_AvatarFolder ] ]
 		GUISetAccelerators($aAccel)
 
 		; Resize and center window
@@ -306,6 +328,8 @@ Func Main()
 		EndIf
 
 		GUICtrlSetState($bt_AddMore, $GUI_FOCUS)
+
+		$iWinHeightExpand += $aWinOffset[1]
 	#endregion
 
 	; ====================================================================================================================
@@ -314,25 +338,25 @@ Func Main()
 
 	If $sDownloadList Then _DownloadAvatars($sDownloadList) ; Start avatar downloads if necessary
 
-	While WinActive($WMG_HMAIN) ; If window loses focus then close immediately.
-
+	$iActiveTimeout = TimerInit()
+	While 1
 		$GM = GUIGetMsg()
 		Switch $GM
 			Case $GUI_EVENT_NONE
 				; Some controls are not actually created if not required (ie: $bt_Banner) and
 				; their variable defaults to ''. This will match the default GUIGetMsg return (0)
 				; and that would erroneously trigger that Case statement.
-				; So instead we "handle" the default GUIGetMsg ($GUI_EVENT_NONE) and then the flow
+				; So we make sure to handle the default GUIGetMsg ($GUI_EVENT_NONE) first and then the flow
 				; never reaches the undeclared variable's Case.
 			Case $bt_Banner
 				; Clicking the banner triggers the context menu
-				$aWinGetPos = WinGetPos(GUICtrlGetHandle($bt_Banner))
-				_GUICtrlMenu_TrackPopupMenu(GUICtrlGetHandle($cm_Banner), $WMG_HMAIN, $aWinGetPos[0]+$aWinGetPos[2], $aWinGetPos[1]+$aWinGetPos[3], 2, 1)
+				$aGetPos = WinGetPos(GUICtrlGetHandle($bt_Banner))
+				_GUICtrlMenu_TrackPopupMenu(GUICtrlGetHandle($cm_Banner), $WMG_HMAIN, $aGetPos[0]+$aGetPos[2], $aGetPos[1]+$aGetPos[3], 2, 1)
 			Case $mi_OpenSteam
-				_SteamLogin($WMG_HMAIN)
+				_SteamLogin()
 			Case $mi_CloseSteam
 				GUISetState(@SW_DISABLE, $WMG_HMAIN)
-				If _SteamClose($WMG_HMAIN) Then
+				If _SteamClose() Then
 					; If Steam closes successfully, then close and relaunch this app (to launch without $bt_Banner)
 					GUISetState(@SW_HIDE, $WMG_HMAIN)
 					ShellExecute(@AutoItExe, $CmdLineRaw)
@@ -344,48 +368,47 @@ Func Main()
 
 			; These are from the $bt_Banner menu
 			Case $mi_GoOnline
-				_SteamLogin($WMG_HMAIN, $CURR_USER, 1, $sCmdPassthru)
+				_SteamLogin($CURR_USER, 1, $sCmdPassthru)
 			Case $mi_GoOffline
-				_SteamLogin($WMG_HMAIN, $CURR_USER, 2, $sCmdPassthru)
+				_SteamLogin($CURR_USER, 2, $sCmdPassthru)
 
-			; These are from the user button context menu
+			; These are from the user context menu
+			Case $WMG_MI_TITLE
+				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 0, $sCmdPassthru)
 			Case $WMG_MI_ONLINE
-				_SteamLogin($WMG_HMAIN, GUICtrlRead($WMG_MI_TITLE, 1), 1, $sCmdPassthru)
+				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 1, $sCmdPassthru)
 			Case $WMG_MI_OFFLINE
-				_SteamLogin($WMG_HMAIN, GUICtrlRead($WMG_MI_TITLE, 1), 2, $sCmdPassthru)
+				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 2, $sCmdPassthru)
 			Case $mi_ReloadAvatar
-				For $i = 1 To $USER_LIST[0][0]
-					If $USER_LIST[$i][$UL_USER] = GUICtrlRead($WMG_MI_TITLE, 1) Then
-						GUICtrlSetImage($USER_LIST[$i][$UL_PIC_CTRL], $DEFAULT_AV)
-						$USER_LIST[$i][$UL_DOWNLOAD] = True
-						FileDelete($AVATAR_PATH & $USER_LIST[$i][$UL_USER] & '.jpg')
-						_DownloadAvatars($USER_LIST[$i][$UL_USER])
+				For $i = 1 To $USER_LIST[0][0] ; Iterate through user list
+					If $USER_LIST[$i][$UL_USER] = GUICtrlRead($WMG_MI_TITLE, 1) Then ; Find the user selected
+						GUICtrlSetImage($USER_LIST[$i][$UL_PIC_CTRL], $DEFAULT_AV) ; Set to temp image
+						$USER_LIST[$i][$UL_DOWNLOAD] = True ; Set download flag to true
+						FileDelete($AVATAR_PATH & $USER_LIST[$i][$UL_USER] & '.*')
+						_DownloadAvatars($USER_LIST[$i][$UL_USER]) ; Trigger downloader
 						ExitLoop
 					EndIf
 				Next
 
 			; User buttons and pics
-			Case $aRange_UserBtns[0] To $aRange_UserBtns[1], $aRange_PicCtrls[0] To $aRange_PicCtrls[1]
-				For $i = 1 To $USER_LIST[0][0]
-					If $GM = $USER_LIST[$i][$UL_PIC_CTRL] Or $GM = $USER_LIST[$i][$UL_BTN_CTRL] Then
+			Case $aRange_UserBtns[0] To $aRange_UserBtns[1]
+				For $i = 1 To $USER_LIST[0][0] ; Iterate through user list
+					If $GM = $USER_LIST[$i][$UL_PIC_CTRL] Or $GM = $USER_LIST[$i][$UL_BTN_CTRL] Then ; Find the button clicked
+						$iOfflineMode = 0
+						If BitAND(GUICtrlRead($ra_OfflineNo), $GUI_CHECKED) Then
+							$iOfflineMode = 1
+						ElseIf BitAND(GUICtrlRead($ra_OfflineYes), $GUI_CHECKED) Then
+							$iOfflineMode = 2
+						EndIf
 
-						; Instead of 3 If's comparing each state to true, one Switch statement to compare true to each state
-						Switch True
-							Case BitAND(GUICtrlRead($ra_OfflineDef), $GUI_CHECKED)
-								$iOfflineMode = 0
-							Case BitAND(GUICtrlRead($ra_OfflineNo), $GUI_CHECKED)
-								$iOfflineMode = 1
-							Case BitAND(GUICtrlRead($ra_OfflineYes), $GUI_CHECKED)
-								$iOfflineMode = 2
-						EndSwitch
-
-						_SteamLogin($WMG_HMAIN, $USER_LIST[$i][$UL_USER], $iOfflineMode, $sCmdPassthru)
+						_SteamLogin($USER_LIST[$i][$UL_USER], $iOfflineMode, $sCmdPassthru)
+						ExitLoop
 					EndIf
 				Next
 
 			Case $bt_AddMore
 				GUISetState(@SW_DISABLE, $WMG_HMAIN)
-				_AddUsers($WMG_HMAIN, $sUsersFiltered)
+				_ManageUsers($sUsersFiltered)
 				GUISetState(@SW_ENABLE, $WMG_HMAIN)
 				WinActivate($WMG_HMAIN)
 
@@ -394,11 +417,11 @@ Func Main()
 				For $i = $aRange_ExtraCtrls[0] To $aRange_ExtraCtrls[1]
 					GUICtrlSetState($i, $GUI_SHOW)
 				Next
-				WinMove($WMG_HMAIN, '', Default, Default, Default, $iWinHeightExpand + $aWinOffset[1])
+				WinMove($WMG_HMAIN, '', Default, Default, Default, $iWinHeightExpand)
 
 			Case $lb_Help
 				GUISetState(@SW_DISABLE, $WMG_HMAIN)
-				_Help($WMG_HMAIN)
+				_Help()
 				GUISetState(@SW_ENABLE, $WMG_HMAIN)
 				WinActivate($WMG_HMAIN)
 
@@ -416,82 +439,145 @@ Func Main()
 				; Launch downloader process
 				_DownloadAvatars($sDownloadList)
 
+			Case $bt_AvatarFolder
+				ShellExecute($AVATAR_PATH)
+
+			Case $dm_TabDn
+				_TabSwitch(1)
+			Case $dm_TabUp
+				_TabSwitch(0)
+
 			Case $GUI_EVENT_CLOSE
 				Exit @ScriptLineNumber
 		EndSwitch
+
+		If WinActive($WMG_HMAIN) Then
+			$iActiveTimeout = TimerInit()
+		ElseIf TimerDiff($iActiveTimeout) > $UNFOCUS_TIMEOUT Then
+			; Close window after timeout
+			Exit @ScriptLineNumber
+		EndIf
 	WEnd
 EndFunc
 
-Func _SteamClose($hMain) ; Open cancellable timeout window for Steam closure
-	Local $hGUIWait, $lb_Wait, $bt_Cancel, $GM, $iSteamPID, $iTimer, $iCountdown = 15, _
-		$iMsgBox, $sMsgBox = 'Failed to shutdown properly.' & @LF & @LF & _
-		'Force shutdown?' & @LF & @LF & _
-		'Yes:	Kill process (may result in lost data).' & @LF & _
-		'No:	Continue waiting for normal shutdown.' & @LF & _
-		'Cancel:	Stop trying to shutdown Steam.'
+Func _Migrate() ; Old version config migration
+	Local $hAvatars, $sFile
+	If FileExists($CFG_PATH & 'SteamSwitch.cfg') And Not FileExists($USERS_FILE) Then
+		FileMove($CFG_PATH & 'SteamSwitch.cfg', $USERS_FILE)
+	EndIf
 
-	$hGUIWait = GUICreate('', 200, 110, Default, Default, BitOR($WS_POPUP, $WS_BORDER), Default, $hMain)
-	$lb_Wait = GUICtrlCreateLabel('Closing Steam...', 0, 10, 200, 30, $SS_CENTER)
-	GUICtrlCreateIcon($WAIT_ANIM, 0, 84, 40, 32, 32)
-	$bt_Cancel = GUICtrlCreateButton('Cancel', 70, 85, 60, 20)
+	$hAvatars = FileFindFirstFile($CFG_PATH & '*.jpg')
 
-	$iSteamPID = ProcessExists('steam.exe')
+	While $hAvatars <> -1
+		$sFile = FileFindNextFile($hAvatars)
+		If @error Then ExitLoop
+
+		FileMove($CFG_PATH & $sFile, $AVATAR_PATH & $sFile)
+	WEnd
+EndFunc
+
+Func _SteamPID() ; Get process ID of Steam process if it matches $STEAM_EXE path
+	Local $aModules, $aProcs, $aProcName = StringRegExp($STEAM_EXE, '([^\\/]+?)$', 1)
+	If Not @error Then
+		; The _WinAPI_EnumProcessModules function works from a 64-bit system only in Windows Vista or later
+		If @AutoItX64 And Number(_WinAPI_GetVersion()) < 6.0 Then
+			Return ProcessExists($aProcName[0])
+		Else
+			$aProcs = ProcessList($aProcName[0])
+			For $i = 1 To $aProcs[0][0]
+				$aModules = _WinAPI_EnumProcessModules($aProcs[$i][1])
+				For $m = 1 to $aModules[0][0]
+					If $aModules[$m][1] = $STEAM_EXE Then Return $aProcs[$i][1]
+				Next
+			Next
+		EndIf
+	EndIf
+EndFunc
+
+Func _SteamClose() ; Close Steam window
+	Static $hGUIWait, $lb_Wait[15], $bt_Cancel, $bt_Kill
+	Local $GM, $iSteamPID, $iTimer, $iAniTimer, $iAniStep = 0, $iAniPhase = 1, $iAniDelay = 200
+
+	If Not $hGUIWait Then
+		$hGUIWait = GUICreate('Please wait...', 200, 135, Default, Default, Default, $WS_EX_TOOLWINDOW, $WMG_HMAIN)
+		GUICtrlCreateLabel('Closing Steam...', 0, 15, 200, 30, $SS_CENTER)
+			GUICtrlSetFont(-1, 12, 700)
+		For $i = 0 To 4 ; Only define a portion of the dot labels, this simulates the delay between each animation cycle
+			$lb_Wait[$i] = GUICtrlCreateLabel('•', 25+ $i * 30, 50, 30, 30, BitOR($SS_CENTER, $SS_CENTERIMAGE))
+				GUICtrlSetFont(-1, 50)
+		Next
+		$bt_Cancel = GUICtrlCreateButton('Cancel', 20, 100, 75, 25)
+		$bt_Kill = GUICtrlCreateButton('Force Close', 105, 100, 75, 25)
+	EndIf
+
+	$iSteamPID = _SteamPID()
 	If $iSteamPID Then
-		ShellExecute($STEAM_EXE, '-shutdown') ; Send shutdown command to Steam
+		If $DEBUG = False Then ShellExecute($STEAM_EXE, '-shutdown') ; Send shutdown command to Steam
 		GUISetState(@SW_SHOW, $hGUIWait)
 
 		$iTimer = TimerInit() ; Start timer
-		GUICtrlSetData($lb_Wait, 'Closing Steam...')
-		While ProcessExists($iSteamPID) ; Will immediately exit if Steam exits
+		$iAniTimer = TimerInit()
+		While ProcessExists($iSteamPID) ; Will exit if Steam exits
 			$GM = GUIGetMsg()
-			If $GM = $bt_Cancel Or $GM = $GUI_EVENT_CLOSE Then ExitLoop ; Allow cancel
 
-			If TimerDiff($iTimer) > 1000 Then ; Reset $iTimer so this statement runs about once per second
-				$iTimer = TimerInit()
-				$iCountdown -= 1
-
-				If $iCountdown <= 0 Then
-					; Reached end of timeout
-					$iMsgBox = MsgBox(0x2213, 'Error', $sMsgBox, 0, $hMain) ; Yes: 6, No: 7, Cancel: 2
-					If $iMsgBox = 6 Then ; 6 = Yes = Kill process
-						; Confirm kill process
-						If MsgBox(0x134, 'Notice', 'Are you sure you want to force Steam to close? This may result in lost data if Steam is still working (eg: uploading cloud saves).', 0, $hMain) = 6 Then
-							; Try to kill the process, reset the countdown and continue loop
-							ProcessClose($iSteamPID)
-							$iCountdown = 10
-							GUICtrlSetData($lb_Wait, 'Closing Steam...')
-							ContinueLoop
-						EndIf
-					ElseIf $iMsgBox = 7 Then
-						; Try sending the normal Steam shutdown command again, reset countdown, continue loop
-						ShellExecute($STEAM_EXE, '-shutdown')
-						$iCountdown = 10
-						GUICtrlSetData($lb_Wait, 'Closing Steam...')
-						ContinueLoop
-					Else
-						; Just give up already!
-						ExitLoop
+			Switch $GM
+				Case $GUI_EVENT_NONE
+					If TimerDiff($iTimer) > 10000 Then
+						; Every 10 seconds resend shutdown command
+						$iTimer = TimerInit()
+						If $DEBUG = False Then ShellExecute($STEAM_EXE, '-shutdown')
 					EndIf
-				ElseIf $iCountdown <= 10 Then
-					; Timeout countdown is down to 10 seconds, start showing to user
-					GUICtrlSetData($lb_Wait, 'Closing Steam...' & @LF & '(timeout ' & $iCountdown & ' seconds)')
-				EndIf
-			EndIf
+
+					If TimerDiff($iAniTimer) > $iAniDelay Then
+						$iAniTimer = TimerInit()
+						$iAniDelay = 200
+						If $iAniPhase Then
+							GUICtrlSetColor($lb_Wait[$iAniStep], 0x66c0f4)
+						Else
+							GUICtrlSetColor($lb_Wait[$iAniStep], 0)
+						EndIf
+
+						$iAniStep = Mod($iAniStep + 1, 5)
+						If Not $iAniStep Then
+							$iAniDelay *= 2
+							$iAniPhase = Mod($iAniPhase+1, 2)
+						EndIf
+					EndIf
+
+				Case $bt_Kill
+					If MsgBox(0x134, 'Warning!', 'Are you sure you want to force Steam to close?' & @LF & 'This may result in lost data if Steam is still working (eg: uploading cloud saves).', 0, $hGUIWait) = 6 Then
+						ProcessClose($iSteamPID)
+					EndIf
+				Case $bt_Cancel, $GUI_EVENT_CLOSE
+					ExitLoop
+			EndSwitch
 		WEnd
 	EndIf
 
-	GUIDelete($hGUIWait)
+	GUISetState(@SW_HIDE, $hGUIWait)
 	Return Not ProcessExists($iSteamPID) ; Return true if Steam is closed or not running
 EndFunc
 
-Func _SteamLogin($hMain, $sUsername = $CURR_USER, $iOfflineMode = 0, $sCmdPassthru = '') ; Set login user, offline mode, close Steam if necessary, and relaunch
+Func _SteamLogin($sUsername = $CURR_USER, $iOfflineMode = 0, $sCmdPassthru = '') ; Set login user, offline mode, close Steam if necessary, and relaunch
 	Local $iMsgBox, $bReadonly
-	GUISetState(@SW_HIDE, $hMain)
+	GUISetState(@SW_HIDE, $WMG_HMAIN)
 	If $CURR_USER <> $sUsername Or $iOfflineMode <> 0 Then
 		; We only need to try and close Steam if the user or the offline mode needs to change
-		If Not _SteamClose($hMain) Then Return GUISetState(@SW_SHOW, $hMain)
+		If Not _SteamClose() Then Return GUISetState(@SW_SHOW, $WMG_HMAIN)
 
 		RegWrite($STEAM_REG, $REG_USERNAME, 'REG_SZ', $sUsername)
+	Else
+		; Check for Steam offline window
+		If WinExists('[CLASS:vguiPopupWindow;TITLE:Steam - Offline Mode]') Then
+			If Not BitAND(WinGetState('[last]'), 2) Then ; Window exists but is hidden
+				WinSetState('[last]', '', @SW_SHOW)
+				Local $iMsgBox = MsgBox(0x40, 'Notice', 'The Steam - Offline Mode window was open but hidden.' & @LF & _
+					'This happens when you just close the window instead of clicking either the "GO ONLINE" or "START IN OFFLINE MODE" button.' & @LF & _
+					'This window must be dealt with before Steam can be opened.', 0, WinGetHandle('[last]'))
+			EndIf
+			WinActivate('[last]')
+			Exit @ScriptLineNumber
+		EndIf
 	EndIf
 	; Make sure Remember Password is enabled. Otherwise Steam will prompt for password, completely defeating the whole purpose of this app.
 	RegWrite($STEAM_REG, $REG_REMPASS, 'REG_DWORD', 1)
@@ -511,12 +597,12 @@ Func _SteamLogin($hMain, $sUsername = $CURR_USER, $iOfflineMode = 0, $sCmdPassth
 		Switch @error
 			Case 1
 				$bReadonly = StringInStr(FileGetAttrib($STEAM_CFG_PATH), 'R')
-				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to write to ' & $STEAM_CFG_PATH & ($bReadonly ? ' - File is read-only' : '') & '. Cannot change offline mode. Continue anyway?', 0, $hMain)
+				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to write to ' & $STEAM_CFG_PATH & ($bReadonly ? ' - File is read-only' : '') & '. Cannot change offline mode. Continue anyway?', 0, $WMG_HMAIN)
 			Case 2
-				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to find and write user config (possible first time login?). Cannot change offline mode. Continue anyway?', 0, $hMain)
+				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to find and write user config (possible first time login?). Cannot change offline mode. Continue anyway?', 0, $WMG_HMAIN)
 		EndSwitch
 
-		If $iMsgBox = 2 Then Return GUISetState(@SW_SHOW, $hMain)
+		If $iMsgBox = 2 Then Return GUISetState(@SW_SHOW, $WMG_HMAIN)
 	EndIf
 
 	; Run Steam with the passed through parameters
@@ -634,16 +720,16 @@ Func _SteamConfig($sUser, $bOffline = Default) ; Steam config file modifier, tog
 		; The SkipOfflineModeWarning should, as it implies, skip that prompt on launch but it seems to be inconsistent lately (can't figure out why).
 		If $bOffline Then
 			; Replace existing value, if replace fails add new value to segment
-			$sNewConfig = StringRegExpReplace($sNewConfig, '("WantsOfflineMode"\s*)"."', '\1"1"')
+			$sNewConfig = StringRegExpReplace($sNewConfig, '(?i)("WantsOfflineMode"\s*)"."', '\1"1"')
 			If Not @extended Then $sNewConfig &= StringFormat('\t"WantsOfflineMode"\t\t"1"\n\t')
 
 			; Same as previous
-			$sNewConfig = StringRegExpReplace($sNewConfig, '("SkipOfflineModeWarning"\s*)"."', '\1"1"')
+			$sNewConfig = StringRegExpReplace($sNewConfig, '(?i)("SkipOfflineModeWarning"\s*)"."', '\1"1"')
 			If Not @extended Then $sNewConfig &= StringFormat('\t"SkipOfflineModeWarning"\t\t"1"\n\t')
 		Else
 			; Replace existing value, if replace fails just ignore (value not necessary if not using offline mode)
-			$sNewConfig = StringRegExpReplace($sNewConfig, '("WantsOfflineMode"\s*)"."', '\1"0"')
-			$sNewConfig = StringRegExpReplace($sNewConfig, '("SkipOfflineModeWarning"\s*)"."', '\1"0"')
+			$sNewConfig = StringRegExpReplace($sNewConfig, '(?i)("WantsOfflineMode"\s*)"."', '\1"0"')
+			$sNewConfig = StringRegExpReplace($sNewConfig, '(?i)("SkipOfflineModeWarning"\s*)"."', '\1"0"')
 		EndIf
 
 		; Combine new config with outer segments.
@@ -662,81 +748,65 @@ Func _SteamConfig($sUser, $bOffline = Default) ; Steam config file modifier, tog
 EndFunc
 
 
-Func _Help($hMain) ; Help dialog
-	Local $GM, $hGUIHelp = GUICreate('Help  —  v' & FileGetVersion(@ScriptFullPath), 400, 300, Default, Default, BitOR($WS_CAPTION, $WS_SYSMENU, $WS_SIZEBOX), Default, $hMain), _
-	$sHelpDoc = 'Welcome to Steam Switch!' & @CRLF & _
-		@CRLF & _
-		'    This application lets you switch Steam profiles/logins without having to retype your password all the time, so long as you''ve normally logged in at least once before.' & @CRLF & _
-		'    The application doesn''t store your passwords anywhere and never asks for them. Instead it relies on Steam''s built in password memory. The only data it actually stores is the' & _
-		' list of usernames that you provide and the publicly available avatars of said users.' & @CRLF & _
-		'    Theoretically you will only have to re-enter your password if Steam''s settings get lost or changed. I personally used the app for months without having to re-enter my password.' & @CRLF & _
-		@CRLF & _
-		'    To get started, click the Add/Edit Users button.' & @CRLF & _
-		'    You will be presented with a text box. Type in the usernames you want to be able to switch between, one on each line, and hit OK.' & _
-		' The program will close and reopen with all your chosen usernames and their avatars listed (they may take a few seconds to download).' & @CRLF & _
-		'    Now click on the user you want to log in as.' & @CRLF & _
-		'    If Steam is already running as that user it will simply open/refocus the Steam window. If Steam is running as another user, it will be closed gracefully and relaunched as the chosen user' & _
-		' (if for some reason Steam will not close within 15 seconds you will be prompted to wait longer or to cancel).' & @CRLF & _
-		'    If you want Steam to start in offline mode (or conversely online mode if it was last run in offline mode) then you can click the Extra Options button at the bottom of the window to see those options.' & _
-		' This setting will restart Steam regardless of whether the chosen user is already logged in.' & @CRLF & _
-		'    There is also a button in the Extra Options to reload avatars. This simply deletes all the stored avatars then relaunches the application which then re-downloads them.' & @CRLF & _
-		@CRLF & _
-		'Command line parameters:' & @CRLF & _
-		'    /as, /AvatarSize=## -- Sets the size of the avatars displayed (Also adjusts username button/text size; default is 64).' & @CRLF & _
-		'    /al, /AutoLogin=USERNAME -- Auto logs in the user, useful for shortcuts.' & @CRLF & _
-		'    /of, /Offline -- Sets connection mode to Offline by default.' & @CRLF & _
-		'    /on, /Online -- Sets connection mode to Online by default.' & @CRLF & _
-		'    /nn, /NoNumbers -- Removes the prefixed shortcut numbers on each username.' & @CRLF & _
-		'    /am, /AtMouse -- Starts UI centered on mouse position.' & @CRLF & _
-		'    /ex, /Extra -- Starts UI with Extra Options panel revealed.' & @CRLF & _
-		@CRLF & _
-		'Any other command line parameters will be passed on to Steam itself. Some handy options are:' & @CRLF & _
-		'    -silent -- Suppresses the dialog box that opens when you start steam.' & @CRLF & _
-		'    -tenfoot -- Start Steam in Big Picture Mode.' & @CRLF & _
-		'    -noverifyfiles -- Prevents the client from checking files integrity.' & @CRLF & _
-		'    For a full list of parameters read here: https://developer.valvesoftware.com/wiki/Command_Line_Options#Steam_.28Windows.29' & @CRLF & _
-		@CRLF & _
-		'So for example, if you wanted to create a shortcut that started Steam as "FunFrank" in offline and Big Picture mode, you would create a shortcut to this target:' & @CRLF & _
-		'    "' & @ScriptFullPath & '" /autoLogin=FunFrank /offline -tenfoot' & @CRLF & _
-		@CRLF & _
-		'Any and all data stored by the application is in AppData, if you want to "uninstall" then just delete ' & @ScriptName & ' and any files in the following folder:' & @CRLF & _
-		'    ' & $CFG_PATH & @CRLF & _
-		@CRLF & _
-		'Author: therks@therks.com'
+Func _Help() ; Help dialog
+	Static $hGUIHelp, $ed_Help, $sHelpFile
 
-	GUICtrlCreateEdit($sHelpDoc, 0, 0, 400, 300, BitOR($ES_WANTRETURN, $WS_VSCROLL, $ES_AUTOVSCROLL, $ES_READONLY))
-		GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
-	GUISetState()
-	ControlSend($hGUIHelp, '', 'Edit1', '^{home}')
+	If Not $hGUIHelp Then ; Create the window only once then just show/hide it
+		$sHelpFile = _
+			StringReplace( _
+				StringReplace( _
+					StringReplace(FileRead($HELP_FILE), @TAB, '    '), _
+				'X:\Path\To\SteamSwitch.exe', @ScriptFullPath), _
+			'%AppData%', @AppDataDir)
+
+		$hGUIHelp = GUICreate('Help  —  v' & FileGetVersion(@ScriptFullPath), 600, 400, Default, Default, BitOR($WS_CAPTION, $WS_SYSMENU, $WS_SIZEBOX), Default, $WMG_HMAIN)
+		$ed_Help = GUICtrlCreateEdit($sHelpFile, 0, 0, 600, 400, BitOR($ES_WANTRETURN, $WS_VSCROLL, $ES_AUTOVSCROLL, $ES_READONLY))
+			GUICtrlSetResizing(-1, $GUI_DOCKBORDERS)
+	EndIf
+	GUISetState(@SW_SHOW, $hGUIHelp)
+	ControlSend($hGUIHelp, '', $ed_Help, '^{home}')
 
 	Do
 	Until GUIGetMsg() = $GUI_EVENT_CLOSE
-	GUIDelete($hGUIHelp)
+	GUISetState(@SW_HIDE, $hGUIHelp)
 EndFunc
 
-Func _AddUsers($hMain, $sPrefill) ; Add/edit users dialog
-	Local $hGUIAdd, $ed_Users, $bt_OK, $bt_Cancel, $aAccel, $GM, $aContent[2], $hFile
+Func _ManageUsers($sPrefill) ; Manage users dialog
+	Static $hGUIAdd, $ed_Users, $bt_Grab, $bt_OK, $bt_Cancel
+	Local $GM, $aAccel, $aRegEx, $aContent[2], $hFile
 
-	$hGUIAdd = GUICreate('Add Users', 300, 265, Default, Default, $WS_CAPTION, Default, $hMain)
-	GUISetFont(9)
-	GUICtrlCreateLabel('Usernames (1 per line):', 5, 5, 140, 25)
-	$ed_Users = GUICtrlCreateEdit(StringAddCR($sPrefill), 0, 25, 150, 200)
-	GUICtrlCreateLabel('Use Steam ACCOUNT names not DISPLAY names.' &@LF& 'Account names are restricted to A-Z, 0-9, and underscore (_), and have a minimum length of 3 characters.', 155, 25, 140, 175)
-	$bt_OK = GUICtrlCreateButton('&OK', 5, 230, 145, 30)
-		GUICtrlSetState(-1, $GUI_DEFBUTTON)
-		GUICtrlSetTip(-1, 'Shortcut: Ctrl+Enter')
-	$bt_Cancel = GUICtrlCreateButton('Cancel', 155, 230, 140, 30)
-	_WinCenter($hGUIAdd, Default, Default, $hMain)
-	GUISetState()
+	If Not $hGUIAdd Then
+		$hGUIAdd = GUICreate('Manage Users', 300, 265, Default, Default, $WS_CAPTION, Default, $WMG_HMAIN)
+		GUISetFont(9)
+		GUICtrlCreateLabel('Usernames (1 per line):', 5, 5, 140, 25)
+		$ed_Users = GUICtrlCreateEdit('', 0, 25, 150, 200)
+		GUICtrlCreateLabel('Use Steam ACCOUNT names not DISPLAY names.' &@LF& 'Account names are restricted to A-Z, 0-9, and underscore (_), and have a minimum length of 3 characters.', 155, 25, 140, 175)
+		$bt_Grab = GUICtrlCreateButton('&Grab Usernames', 155, 195, 140, 30)
+			GUICtrlSetTip(-1, 'Grab usernames from Steam config (Ctrl+G)')
+		$bt_OK = GUICtrlCreateButton('OK', 5, 230, 145, 30, $BS_DEFPUSHBUTTON)
+			GUICtrlSetTip(-1, 'Shortcut: Ctrl+Enter')
+		$bt_Cancel = GUICtrlCreateButton('Cancel', 155, 230, 140, 30)
 
-	Dim $aAccel = [ [ '^{enter}', $bt_OK ] ]
-	GUISetAccelerators($aAccel)
+		Local $aAccel = [ [ '^{enter}', $bt_OK ], [ '^g', $bt_Grab ] ]
+		GUISetAccelerators($aAccel)
+	EndIf
 
+	GUICtrlSetData($ed_Users, StringAddCR($sPrefill))
+	_WinCenter($hGUIAdd, Default, Default, $WMG_HMAIN)
+	GUISetState(@SW_SHOW, $hGUIAdd)
 	ControlSend($hGUIAdd, '', $ed_Users, '^{end}') ; Put cursor at end of list
 
 	While 1
 		$GM = GUIGetMsg()
 		Switch $GM
+			Case $bt_Grab
+				$aRegEx = StringRegExp(FileRead($STEAM_CFG_PATH), '(?i)"AccountName"\s*"(.+?)"', 3)
+				Local $aContent[2] = [ StringStripWS(GUICtrlRead($ed_Users), 2) ]
+				For $i = 0 To UBound($aRegEx)-1
+					If Not StringRegExp($aContent[0], '(?i)\b\Q' & $aRegEx[$i] & '\E\b') Then $aContent[1] &= $aRegEx[$i] & @CRLF
+				Next
+				GUICtrlSetData($ed_Users, StringStripWS($aContent[0] & @CRLF & $aContent[1], 1))
+				ControlSend($hGUIAdd, '', $ed_Users, '^{end}') ; Put cursor at end of list
 			Case $bt_OK
 				$aContent[0] = GUICtrlRead($ed_Users)
 				$aContent[1] = StringRegExpReplace($aContent[0], '[^a-zA-Z0-9_\r\n]', '') ; Change any entries to be compatible Steam usernames
@@ -750,7 +820,7 @@ Func _AddUsers($hMain, $sPrefill) ; Add/edit users dialog
 						FileClose($hFile)
 						; Usernames added, launch new instance and exit current
 						GUIDelete($hGUIAdd)
-						GUISetState(@SW_HIDE, $hMain)
+						GUISetState(@SW_HIDE, $WMG_HMAIN)
 						ShellExecute(@AutoItExe, $CmdLineRaw)
 						Exit @ScriptLineNumber
 					Else
@@ -763,17 +833,7 @@ Func _AddUsers($hMain, $sPrefill) ; Add/edit users dialog
 				ExitLoop
 		EndSwitch
 	WEnd
-	GUIDelete($hGUIAdd)
-	ToolTip('')
-EndFunc
-
-Func _DeferredGUICtrlCreatePic($vData, $iX = Default, $iY = Default, $iW = Default, $iH = Default) ; Log Pic control data to create later
-	If IsArray($vData) And UBound($vData) = 5 Then
-		Return GUICtrlCreatePic($vData[0], $vData[1], $vData[2], $vData[3], $vData[4])
-	Else
-		Local $aReturn = [ $vData, $iX, $iY, $iW, $iH ]
-		Return $aReturn
-	EndIf
+	GUISetState(@SW_HIDE, $hGUIAdd)
 EndFunc
 
 Func _WinGetClientOffset($hWnd) ; Get difference between window size and client size (titlebar, window borders, etc)
@@ -783,18 +843,18 @@ Func _WinGetClientOffset($hWnd) ; Get difference between window size and client 
 EndFunc
 
 Func _WinCenter($hWnd, $iWidth = Default, $iHeight = Default, $vPosition = 'center') ; Size and center window at a location/target
-	Local $aWinMove[4], $aWinGetPos = WinGetPos($hWnd), $aMouse = MouseGetPos()
+	Local $aWinMove[4], $aGetPos = WinGetPos($hWnd), $aMouse = MouseGetPos()
 
-	If $iWidth  = Default Then $iWidth  = $aWinGetPos[2]
-	If $iHeight = Default Then $iHeight = $aWinGetPos[3]
+	If $iWidth  = Default Then $iWidth  = $aGetPos[2]
+	If $iHeight = Default Then $iHeight = $aGetPos[3]
 
 	$aWinMove[2] = $iWidth
 	$aWinMove[3] = $iHeight
 
 	If IsHWnd($vPosition) Then
-		$aWinGetPos = WinGetPos($vPosition)
-		$aWinMove[0] = $aWinGetPos[0] + ($aWinGetPos[2] - $iWidth)/2
-		$aWinMove[1] = $aWinGetPos[1] + ($aWinGetPos[3] - $iHeight)/2
+		$aGetPos = WinGetPos($vPosition)
+		$aWinMove[0] = $aGetPos[0] + ($aGetPos[2] - $iWidth)/2
+		$aWinMove[1] = $aGetPos[1] + ($aGetPos[3] - $iHeight)/2
 	ElseIf $vPosition = 'screen' Then
 		$aWinMove[0] = (@DesktopWidth - $iWidth)/2
 		$aWinMove[1] = (@DesktopHeight - $iHeight)/2
@@ -812,13 +872,15 @@ Func _WinCenter($hWnd, $iWidth = Default, $iHeight = Default, $vPosition = 'cent
 EndFunc
 
 Func _Avatar($sUsername) ; Return path to user avatar if exists otherwise return @error and default avatar
-	Local $sAvatar = $AVATAR_PATH & $sUsername & '.jpg'
-	If FileExists($sAvatar) Then
-		If FileGetSize($sAvatar) Then Return $sAvatar
-		Return $NO_AVATAR
-	Else
-		Return SetError(1, 0, $DEFAULT_AV)
-	EndIf
+	Local $sAvatar, $sAvatarName = $AVATAR_PATH & $sUsername, $aExt = [ '.jpg', '.gif', '.bmp' ]
+	For $i = 0 To 2
+		$sAvatar = $sAvatarName & $aExt[$i]
+		If FileExists($sAvatar) Then
+			If FileGetSize($sAvatar) Then Return $sAvatar
+			Return $NO_AVATAR
+		EndIf
+	Next
+	Return SetError(1, 0, $DEFAULT_AV)
 EndFunc
 
 Func _CheckDownloads() ; Adlib function to check if avatar downloads have completed
@@ -839,7 +901,7 @@ Func _CheckDownloads() ; Adlib function to check if avatar downloads have comple
 EndFunc
 
 Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloading background process
-	Local $sAvatarPath, $sAvatarURL, $sAvatarPattern = '(\Qhttps://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/\E.+?_medium\.jpg)', _
+	Local $sAvatarPath, $sAvatarURL, $sAvatarPattern = '(?i)(\Qhttps://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/\E.+?_medium\.jpg)', _
 		$sProfilePage, $aRegEx, $sSearchHTML, $oJSON, $iDownload
 
 	; If given a list this function launches a background process to handle downloads.
@@ -853,7 +915,6 @@ Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloadin
 		Return AdlibRegister(_CheckDownloads, 100)
 	Else
 		For $i = 2 To $CmdLine[0] ; First param will always be $DOWNLOAD_PARAM
-			$iDownload = 0 ; Reset download state to confirm whether download was successful
 			$sAvatarURL = ''
 			$sAvatarPath = $AVATAR_PATH & $CmdLine[$i] & '.jpg'
 			$sProfilePage = BinaryToString(InetRead(StringFormat('https://steamcommunity.com/id/%s/?xml=1', $CmdLine[$i]), 1)) ; Read user profile XML page to string (will unfortunately fail if user has not set their "Custom URL")
@@ -862,7 +923,8 @@ Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloadin
 				If Not @error Then $sAvatarURL = $aRegEx[0]
 			EndIf
 
-			If Not $iDownload Then ; Try the search page method...
+			; If profile page not loaded, or avatar not found on page
+			If Not $sAvatarURL Then ; Try the search page method...
 				; The Steam user search page uses Javascript & Ajax, so we can't just InetRead a simple result page. But we can InetRead the Ajax URL the search page calls on.
 				; The Ajax URL requires a session ID, we can get this from the HTML of the search page (it's in a <script> tag).
 				$sSearchHTML = BinaryToString(InetRead('https://steamcommunity.com/search/users/', 1)) ; Grab the search page HTML
@@ -877,6 +939,7 @@ Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloadin
 				EndIf
 			EndIf
 
+			$iDownload = 0 ; Reset download state to confirm whether download was successful
 			If $sAvatarURL Then $iDownload = InetGet($sAvatarURL, $sAvatarPath)
 
 			; If nothing could be downloaded create an empty dummy file to prevent future attempts to redownload (we assume the avatar is unobtainable, so just stop trying)
@@ -887,17 +950,25 @@ EndFunc
 
 Func WM_MOUSEWHEEL($hWnd, $iMsg, $wParam, $lParam) ; Handle mousewheel scroll to cycle through user page tabs
 	If $hWnd = $WMG_HMAIN And BitAND(WinGetState($WMG_HMAIN), $WIN_STATE_ENABLED) Then
-		Local $iCurr = _GUICtrlTab_GetCurSel($WMG_TAB)
-		Local $iLast = _GUICtrlTab_GetItemCount($WMG_TAB)-1
 		If _WinAPI_HiWord($wParam) > 0 Then
-			$iCurr -= 1
-			If $iCurr < 0 Then Return
+			_TabSwitch(0)
 		Else
-			$iCurr += 1
-			If $iCurr > $iLast Then Return
+			_TabSwitch(1)
 		EndIf
-		_GUICtrlTab_ActivateTab($WMG_TAB, $iCurr)
 	EndIf
+EndFunc
+
+Func _TabSwitch($bDir = 0)
+	Local $iCurr = _GUICtrlTab_GetCurSel($WMG_TAB)
+	Local $iLast = _GUICtrlTab_GetItemCount($WMG_TAB)-1
+	If Not $bDir Then
+		$iCurr -= 1
+		If $iCurr < 0 Then Return
+	Else
+		$iCurr += 1
+		If $iCurr > $iLast Then Return
+	EndIf
+	_GUICtrlTab_ActivateTab($WMG_TAB, $iCurr)
 EndFunc
 
 Func WM_CONTEXTMENU($hWnd, $iMsg, $wParam, $lParam) ; Handle context menu to modify and pop it on user buttons
