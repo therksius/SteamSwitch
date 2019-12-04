@@ -83,6 +83,7 @@ Any and all data stored by the application is in an AppData subfolder, so if you
 - Different waiting animation for SteamClose window.
 - Added detection for other avatar file types (jpg, gif, bmp) if users want to customize avatars.
 - Added "Grab Usernames" button to Manage users dialog. This will check the Steam loginusers.vdf file for any AccountNames and add them to the list.
+- Dropped extra icons from compiled version.
 
 ##### v1.5:
 
