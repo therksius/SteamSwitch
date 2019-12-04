@@ -5,7 +5,7 @@
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
 #AutoIt3Wrapper_Res_Fileversion=1.5.1
-#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
+#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=n
 #AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch1.ico
 #AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch2.ico
 #AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch3.ico
