@@ -5,12 +5,11 @@ This application lets you login to different Steam accounts without having to re
 This application doesn't ask for or store your passwords, it relies on Steam's password memory. Theoretically you will only have to re-enter your password if you manually sign out of Steam or it's settings get lost or changed. I have personally used the app for months without having to re-enter a password.
 
 ## Quick Start Guide:
+
 1. Click the "Manage Users" button. You will be presented with a window with a text entry and some buttons. You can enter usernames or press the "Grab Usernames" button and try to auto grab usernames from the Steam config files.
 2. When you press OK the program will reopen with the users listed with their avatars (they may take a few moments to download).
 3. Now you can just click on whichever user you want to log in as.
 	- You can also right-click a user for a menu with online/offline start options.
-
-------------------------------------------------------------
 
 ## Usage Notes:
 
