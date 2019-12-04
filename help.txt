@@ -55,11 +55,12 @@ Uninstall:
 
 
 Change log:
------------
+----------------------
 
 v1.5.1:
 	- Forgot to test the deferred pic creation with tabs, doesn't work properly, so just removed it.
 	- Added config migration (whoops, forgot to include with v1.5).
+	- Fixed bug with avatar download which would ignore profile page avatar and try the search page.
 	- Changed "Add/Edit Users" to "Manage Users".
 	- Change unfocused auto-close. Was getting too many erroneous exits. Now waits 100ms before closing.
 	- Changed all child GUI handles to static vars and hide/show instead of deleting/creating every time.
@@ -69,6 +70,7 @@ v1.5.1:
 	- Different waiting animation for SteamClose window.
 	- Added detection for other avatar file types (jpg, gif, bmp) if users want to customize avatars.
 	- Added "Grab Usernames" button to Manage users dialog. This will check the Steam loginusers.vdf file for any AccountNames and add them to the list.
+	- Dropped extra icons from compiled version.
 
 v1.5:
 	- Added context menu for user buttons (start offline/online, reload avatar).
@@ -87,3 +89,7 @@ v1.5:
 	- Run _SteamConfig on every launch to ensure Timestamp value is always current (theoretically preventing password expiration).
 	- Warn if _SteamConfig fails (could not find user in file, or could not write to file: loginusers.vdf).
 	- Added lots of commentary.
+	
+	
+Check for updates on the github page!
+	https://github.com/therksius/SteamSwitch

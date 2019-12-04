@@ -4,13 +4,8 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5.1
-#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=n
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch1.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch2.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch3.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch4.ico
-#AutoIt3Wrapper_Res_Icon_Add=icons\SteamSwitch5.ico
+#AutoIt3Wrapper_Res_Fileversion=1.5.1.1
+#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Run_Before=IF "%fileversion%" NEQ "" COPY "%in%" "%scriptdir%\%scriptfile% (v%fileversion%).au3"
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
@@ -920,7 +915,6 @@ Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloadin
 		Return AdlibRegister(_CheckDownloads, 100)
 	Else
 		For $i = 2 To $CmdLine[0] ; First param will always be $DOWNLOAD_PARAM
-			$iDownload = 0 ; Reset download state to confirm whether download was successful
 			$sAvatarURL = ''
 			$sAvatarPath = $AVATAR_PATH & $CmdLine[$i] & '.jpg'
 			$sProfilePage = BinaryToString(InetRead(StringFormat('https://steamcommunity.com/id/%s/?xml=1', $CmdLine[$i]), 1)) ; Read user profile XML page to string (will unfortunately fail if user has not set their "Custom URL")
@@ -929,7 +923,8 @@ Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloadin
 				If Not @error Then $sAvatarURL = $aRegEx[0]
 			EndIf
 
-			If Not $iDownload Then ; Try the search page method...
+			; If profile page not loaded, or avatar not found on page
+			If Not $sAvatarURL Then ; Try the search page method...
 				; The Steam user search page uses Javascript & Ajax, so we can't just InetRead a simple result page. But we can InetRead the Ajax URL the search page calls on.
 				; The Ajax URL requires a session ID, we can get this from the HTML of the search page (it's in a <script> tag).
 				$sSearchHTML = BinaryToString(InetRead('https://steamcommunity.com/search/users/', 1)) ; Grab the search page HTML
@@ -944,6 +939,7 @@ Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloadin
 				EndIf
 			EndIf
 
+			$iDownload = 0 ; Reset download state to confirm whether download was successful
 			If $sAvatarURL Then $iDownload = InetGet($sAvatarURL, $sAvatarPath)
 
 			; If nothing could be downloaded create an empty dummy file to prevent future attempts to redownload (we assume the avatar is unobtainable, so just stop trying)
