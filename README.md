@@ -72,6 +72,7 @@ Any and all data stored by the application is in an AppData subfolder, so if you
 
 ##### v1.5.1:
 
+- Credit to AutoIt forum user Ward, for the Json.au3 and BinaryCall.au3 files included since last update. Forum thread here: https://www.autoitscript.com/forum/topic/148114-a-non-strict-json-udf-jsmn/
 - Forgot to test the deferred pic creation with tabs, doesn't work properly, so just removed it.
 - Added config migration (whoops, forgot to include with v1.5).
 - Fixed bug with avatar download which would ignore profile page avatar and try the search page.
