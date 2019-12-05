@@ -4,7 +4,7 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5.1.2
+#AutoIt3Wrapper_Res_Fileversion=1.5.2
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Run_Before=IF "%fileversion%" NEQ "" COPY "%in%" "%scriptdir%\%scriptfile% (v%fileversion%).au3"
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
@@ -56,7 +56,7 @@ Func Main()
 		$iOfflineMode = 0, $bDoNumbers, $vCenterAt = 'screen', $bAutoExpand, $iAvatarSize = 64, $iOfflineBorder = 2, $sAutoLogin, $sCmdPassthru, _ ; Param vars
 		$sButtonText, $sOfflineText, $aAccel, $iTrackWidth = 250, $iTrackHeight = 0, $iWinWidth, $iWinHeight, $iWinHeightExpand, _
 		$bt_Banner, $cm_Banner, $mi_OpenSteam, $mi_CloseSteam, $mi_GoOnline, $mi_GoOffline, $mi_ReloadAvatar, $aRange_UserBtns[2], _ ; GUI vars
-		$bt_AddMore, $bt_Extra, $aRange_ExtraCtrls[2], $ra_OfflineDef, $ra_OfflineNo, $ra_OfflineYes, $bt_ReloadAvatars, $bt_AvatarFolder, $lb_Help, $GM
+		$bt_Manage, $bt_Extra, $aRange_ExtraCtrls[2], $ra_OfflineDef, $ra_OfflineNo, $ra_OfflineYes, $bt_ReloadAvatars, $bt_AvatarFolder, $in_SteamParams, $lb_Help, $GM
 
 	; Cannot find steam installation so quit
 	If Not $STEAM_EXE Then
@@ -263,7 +263,7 @@ Func Main()
 
 		GUISetFont(9) ; Reset font to a regular size
 
-		$bt_AddMore = GUICtrlCreateButton('M&anage Users', 0, $iTrackHeight, $iWinWidth, 25)
+		$bt_Manage = GUICtrlCreateButton('M&anage Users', 0, $iTrackHeight, $iWinWidth, 25)
 			GUICtrlSetTip(-1, 'Ctrl+A')
 			$iTrackHeight += 25
 
@@ -293,43 +293,49 @@ Func Main()
 				$bt_ReloadAvatars = GUICtrlCreateButton('&Reload Avatars', 5, $iTrackHeight, ($iWinWidth-10)/2, 25)
 					GUICtrlSetTip(-1, 'Ctrl+R')
 				$bt_AvatarFolder = GUICtrlCreateButton('&Open Avatar Folder', 5+($iWinWidth-10)/2, $iTrackHeight, ($iWinWidth-10)/2, 25)
+					GUICtrlSetTip(-1, 'Ctrl+O')
 					$iTrackHeight += 25
 
-				$lb_Help = GUICtrlCreateLabel('Version: ' & FileGetVersion(@ScriptFullPath), 0, $iTrackHeight, $iWinWidth, 10, $SS_CENTER)
-					GUICtrlSetFont(-1, 6)
-					GUICtrlSetCursor(-1, 4)
-					$iTrackHeight += 10
+				GUICtrlCreateLabel('Steam O&ptions:', 5, $iTrackHeight, 90, 20, $SS_CENTERIMAGE)
+				$in_SteamParams = GUICtrlCreateInput(StringStripWS($sCmdPassthru, 3), 95, $iTrackHeight, $iWinWidth-100, 20)
+					$iTrackHeight += 25
+
 			$aRange_ExtraCtrls[1] = GUICtrlCreateDummy() ; End range
+
+			; Put this outside the range so it doesn't get disabled, and can still trigger from F1. It's placed outside normal range anyway so it won't be visible until the window is expanded.
+			$lb_Help = GUICtrlCreateLabel('Version: ' & FileGetVersion(@ScriptFullPath), 0, $iTrackHeight, $iWinWidth, 10, $SS_CENTER)
+				GUICtrlSetFont(-1, 6)
+				GUICtrlSetCursor(-1, 4)
+				$iTrackHeight += 10
 		#endregion
 		; ====================================================================================================================
 		$iWinHeightExpand = $iTrackHeight ; Record height after extra controls for expanded window
 
-		For $i = $aRange_ExtraCtrls[0] To $aRange_ExtraCtrls[1]
-			GUICtrlSetState($i, $GUI_HIDE) ; Hide the extra controls
-		Next
-
 		Local $dm_TabUp = GUICtrlCreateDummy()
 		Local $dm_TabDn = GUICtrlCreateDummy()
 
-		Dim $aAccel = [ [ '{f1}', $lb_Help ], [ '{pgdn}', $dm_TabDn ], [ '{pgup}', $dm_TabUp ], [ '^a', $bt_AddMore ], [ '^x', $bt_Extra ], [ '^s', $bt_Banner ], [ '^r', $bt_ReloadAvatars ], [ '^f', $bt_AvatarFolder ] ]
+		Dim $aAccel = [ [ '{f1}', $lb_Help ], [ '{pgdn}', $dm_TabDn ], [ '{pgup}', $dm_TabUp ], [ '^a', $bt_Manage ], _
+			[ '^x', $bt_Extra ], [ '^s', $bt_Banner ], [ '^r', $bt_ReloadAvatars ], [ '^o', $bt_AvatarFolder ] ]
 		GUISetAccelerators($aAccel)
 
 		; Resize and center window
 		$aWinOffset = _WinGetClientOffset($WMG_HMAIN)
+		$iWinWidth += $aWinOffset[0]
+		$iWinHeight += $aWinOffset[1]
+		$iWinHeightExpand += $aWinOffset[1]
+
 		If $bAutoExpand Then
-			$bAutoExpand = False
-			GUICtrlSetState($bt_Extra, $GUI_HIDE)
-			For $i = $aRange_ExtraCtrls[0] To $aRange_ExtraCtrls[1]
-				GUICtrlSetState($i, $GUI_SHOW)
-			Next
-			_WinCenter($WMG_HMAIN, $iWinWidth + $aWinOffset[0], $iWinHeightExpand + $aWinOffset[1], $vCenterAt)
+			GUICtrlSetState($bt_Extra, $GUI_HIDE) ; Hide the "Extra Options" button if starting expanded
+			_WinCenter($WMG_HMAIN, $iWinWidth, $iWinHeightExpand, $vCenterAt)
 		Else
-			_WinCenter($WMG_HMAIN, $iWinWidth + $aWinOffset[0], $iWinHeight + $aWinOffset[1], $vCenterAt)
+			For $i = $aRange_ExtraCtrls[0] To $aRange_ExtraCtrls[1]
+				GUICtrlSetState($i, BitOR($GUI_DISABLE, $GUI_HIDE)) ; Hide the extra controls if window doesn't start expanded
+			Next
+			_WinCenter($WMG_HMAIN, $iWinWidth, $iWinHeight, $vCenterAt)
 		EndIf
 
-		GUICtrlSetState($bt_AddMore, $GUI_FOCUS)
+		GUICtrlSetState($bt_Manage, $GUI_FOCUS)
 
-		$iWinHeightExpand += $aWinOffset[1]
 	#endregion
 
 	; ====================================================================================================================
@@ -368,17 +374,17 @@ Func Main()
 
 			; These are from the $bt_Banner menu
 			Case $mi_GoOnline
-				_SteamLogin($CURR_USER, 1, $sCmdPassthru)
+				_SteamLogin($CURR_USER, 1, GUICtrlRead($in_SteamParams))
 			Case $mi_GoOffline
-				_SteamLogin($CURR_USER, 2, $sCmdPassthru)
+				_SteamLogin($CURR_USER, 2, GUICtrlRead($in_SteamParams))
 
 			; These are from the user context menu
 			Case $WMG_MI_TITLE
-				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 0, $sCmdPassthru)
+				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 0, GUICtrlRead($in_SteamParams))
 			Case $WMG_MI_ONLINE
-				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 1, $sCmdPassthru)
+				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 1, GUICtrlRead($in_SteamParams))
 			Case $WMG_MI_OFFLINE
-				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 2, $sCmdPassthru)
+				_SteamLogin(GUICtrlRead($WMG_MI_TITLE, 1), 2, GUICtrlRead($in_SteamParams))
 			Case $mi_ReloadAvatar
 				For $i = 1 To $USER_LIST[0][0] ; Iterate through user list
 					If $USER_LIST[$i][$UL_USER] = GUICtrlRead($WMG_MI_TITLE, 1) Then ; Find the user selected
@@ -401,12 +407,12 @@ Func Main()
 							$iOfflineMode = 2
 						EndIf
 
-						_SteamLogin($USER_LIST[$i][$UL_USER], $iOfflineMode, $sCmdPassthru)
+						_SteamLogin($USER_LIST[$i][$UL_USER], $iOfflineMode, GUICtrlRead($in_SteamParams))
 						ExitLoop
 					EndIf
 				Next
 
-			Case $bt_AddMore
+			Case $bt_Manage
 				GUISetState(@SW_DISABLE, $WMG_HMAIN)
 				_ManageUsers($sUsersFiltered)
 				GUISetState(@SW_ENABLE, $WMG_HMAIN)
@@ -415,9 +421,10 @@ Func Main()
 			Case $bt_Extra
 				GUICtrlSetState($bt_Extra, $GUI_HIDE)
 				For $i = $aRange_ExtraCtrls[0] To $aRange_ExtraCtrls[1]
-					GUICtrlSetState($i, $GUI_SHOW)
+					GUICtrlSetState($i, BitOR($GUI_SHOW, $GUI_ENABLE))
 				Next
-				WinMove($WMG_HMAIN, '', Default, Default, Default, $iWinHeightExpand)
+				_WinCenter($WMG_HMAIN, Default, $iWinHeightExpand, $WMG_HMAIN) ; Target itself to center at old position
+				GUICtrlSetState($bt_Manage, $GUI_FOCUS)
 
 			Case $lb_Help
 				GUISetState(@SW_DISABLE, $WMG_HMAIN)
@@ -772,11 +779,11 @@ Func _Help() ; Help dialog
 EndFunc
 
 Func _ManageUsers($sPrefill) ; Manage users dialog
-	Static $hGUIAdd, $ed_Users, $bt_Grab, $bt_OK, $bt_Cancel
-	Local $GM, $aAccel, $aRegEx, $aContent[2], $hFile
+	Static $hGUIUsers, $ed_Users, $bt_Grab, $bt_OK, $bt_Cancel
+	Local $GM, $aAccel, $aRegEx, $aSplit, $aContent[2], $hFile
 
-	If Not $hGUIAdd Then
-		$hGUIAdd = GUICreate('Manage Users', 300, 265, Default, Default, $WS_CAPTION, Default, $WMG_HMAIN)
+	If Not $hGUIUsers Then
+		$hGUIUsers = GUICreate('Manage Users', 300, 265, Default, Default, $WS_CAPTION, Default, $WMG_HMAIN)
 		GUISetFont(9)
 		GUICtrlCreateLabel('Usernames (1 per line):', 5, 5, 140, 25)
 		$ed_Users = GUICtrlCreateEdit('', 0, 25, 150, 200)
@@ -792,39 +799,45 @@ Func _ManageUsers($sPrefill) ; Manage users dialog
 	EndIf
 
 	GUICtrlSetData($ed_Users, StringAddCR($sPrefill))
-	_WinCenter($hGUIAdd, Default, Default, $WMG_HMAIN)
-	GUISetState(@SW_SHOW, $hGUIAdd)
-	ControlSend($hGUIAdd, '', $ed_Users, '^{end}') ; Put cursor at end of list
+	_WinCenter($hGUIUsers, Default, Default, $WMG_HMAIN)
+	GUISetState(@SW_SHOW, $hGUIUsers)
+	ControlSend($hGUIUsers, '', $ed_Users, '^{end}') ; Put cursor at end of list
 
 	While 1
 		$GM = GUIGetMsg()
 		Switch $GM
 			Case $bt_Grab
 				$aRegEx = StringRegExp(FileRead($STEAM_CFG_PATH), '(?i)"AccountName"\s*"(.+?)"', 3)
-				Local $aContent[2] = [ StringStripWS(GUICtrlRead($ed_Users), 2) ]
+				$aContent[0] = StringStripWS(GUICtrlRead($ed_Users), 2)
+				$aContent[1] = ''
 				For $i = 0 To UBound($aRegEx)-1
 					If Not StringRegExp($aContent[0], '(?i)\b\Q' & $aRegEx[$i] & '\E\b') Then $aContent[1] &= $aRegEx[$i] & @CRLF
 				Next
 				GUICtrlSetData($ed_Users, StringStripWS($aContent[0] & @CRLF & $aContent[1], 1))
-				ControlSend($hGUIAdd, '', $ed_Users, '^{end}') ; Put cursor at end of list
+				ControlSend($hGUIUsers, '', $ed_Users, '^{end}') ; Put cursor at end of list
 			Case $bt_OK
 				$aContent[0] = GUICtrlRead($ed_Users)
-				$aContent[1] = StringRegExpReplace($aContent[0], '[^a-zA-Z0-9_\r\n]', '') ; Change any entries to be compatible Steam usernames
-				If $aContent[0] <> $aContent[1] Then
-					; If any entries were changed, replace the edit control contents
-					GUICtrlSetData($ed_Users, $aContent[1])
+				$aContent[1] = ''
+				$aSplit = StringSplit(StringStripWS(StringStripCR($aContent[0]), 7), @LF)
+				For $i = 1 To $aSplit[0]
+					If StringLen($aSplit[$i]) < 3 Or StringRegExp($aSplit[$i], '[^a-zA-Z0-9_]') Then
+						$aContent[1] &= @LF & '    ' & $aSplit[$i]
+					EndIf
+				Next
+				If $aContent[1] Then
+					MsgBox(0x30, 'Notice', 'Invalid usernames:' & $aContent[1], 0, $hGUIUsers)
 				Else
 					$hFile = FileOpen($USERS_FILE, 2)
 					If $hFile <> -1 Then
 						FileWrite($hFile, $aContent[0])
 						FileClose($hFile)
 						; Usernames added, launch new instance and exit current
-						GUIDelete($hGUIAdd)
+						GUIDelete($hGUIUsers)
 						GUISetState(@SW_HIDE, $WMG_HMAIN)
 						ShellExecute(@AutoItExe, $CmdLineRaw)
 						Exit @ScriptLineNumber
 					Else
-						If MsgBox(0x2114, 'Error', 'Cannot write to config file:' & @LF & StringReplace($USERS_FILE, @AppDataDir, '%AppData%') & @LF & @LF & 'Navigate to file location?', 0, $hGUIAdd) = 6 Then
+						If MsgBox(0x2114, 'Error', 'Cannot write to config file:' & @LF & StringReplace($USERS_FILE, @AppDataDir, '%AppData%') & @LF & @LF & 'Navigate to file location?', 0, $hGUIUsers) = 6 Then
 							ShellExecute('explorer.exe', '/select,"' &$USERS_FILE& '"')
 						EndIf
 					EndIf
@@ -833,7 +846,7 @@ Func _ManageUsers($sPrefill) ; Manage users dialog
 				ExitLoop
 		EndSwitch
 	WEnd
-	GUISetState(@SW_HIDE, $hGUIAdd)
+	GUISetState(@SW_HIDE, $hGUIUsers)
 EndFunc
 
 Func _WinGetClientOffset($hWnd) ; Get difference between window size and client size (titlebar, window borders, etc)
