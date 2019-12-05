@@ -21,13 +21,14 @@ Extra Options:
 	You can have the Extra Options revealed on launch by using the "/extra" command line parameter.
 	You can specify the connection mode (default, online, offline) for when you click on a user. The default selection can be changed with a command line parameter (/offline, /online).
 	You can reload all the avatars (deletes all stored files and re-downloads), or open the avatar storage folder.
+	You can add or adjust Steam Options passed to the switcher app (see Command line parameters, below).
 
-Note on avatars:
+Note on Avatars:
 	The application looks for avatars at the default profile URL (https://steamcommunity.com/id/USERNAME). If this page is inaccessible a username search is performed and the first resulting avatar is downloaded. If no avatar can be found at all, a 0 byte file is stored in place of the normal avatar (to prevent future fruitless searches) and a generic avatar will be displayed.
 	If you want to reload an individual user's avatar, right click their name and select "Reload Avatar".
 	If you want to manually set an avatar, open the storage folder (Click the "Open Avatar Folder" button under "Extra Options" or navigate Explorer to "%appdata%\therkSoft\SteamSwitch\avatars") and replace the user's avatar with whatever jpg, gif, or bmp image you want. It just has to be named as USERNAME.EXT (EXT can be BMP, JPG, or GIF).
 
-Command line parameters:
+Command Line Parameters:
 	/al, /AutoLogin=USERNAME -- Auto logs in the user, useful for shortcuts.
 	/as, /AvatarSize=## -- Sets the size of the avatars displayed (default 64).
 	/of, /Offline -- Sets connection mode to Offline by default.
@@ -56,6 +57,10 @@ Uninstall:
 
 Change log:
 ----------------------
+
+v1.5.2:
+	- Changed "Manage Users" invalid username detection. Now shows warning instead of silently trying to correct.
+	- Added input field in Extra Options to allow on-the-fly edits to command line parameters for Steam.
 
 v1.5.1:
 	- Credit to AutoIt forum user Ward, for the Json.au3 and BinaryCall.au3 files included since last update. Forum thread here: https://www.autoitscript.com/forum/topic/148114-a-non-strict-json-udf-jsmn/
@@ -90,7 +95,7 @@ v1.5:
 	- Run _SteamConfig on every launch to ensure Timestamp value is always current (theoretically preventing password expiration).
 	- Warn if _SteamConfig fails (could not find user in file, or could not write to file: loginusers.vdf).
 	- Added lots of commentary.
-	
-	
+
+
 Check for updates on the github page!
 	https://github.com/therksius/SteamSwitch
