@@ -72,6 +72,11 @@ Any and all data stored by the application is in an AppData subfolder, so if you
 
 ### Change log:
 
+##### v1.5.3
+- Modified Steam button menu:
+- Changed "Restart Online/Offline" to "Go Online/Offline", 
+- Added "Restart Steam"
+
 ##### v1.5.2:
 - Changed "Manage Users" invalid username detection. Now shows warning instead of silently trying to correct.
 - Added input field in Extra Options to allow on-the-fly edits to command line parameters for Steam.
