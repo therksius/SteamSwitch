@@ -4,8 +4,13 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5.3
-#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
+#AutoIt3Wrapper_Res_Fileversion=1.5.3.0
+#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=p
+#AutoIt3Wrapper_Res_ProductName=SteamSwitch
+#AutoIt3Wrapper_Res_ProductVersion=1.5.3
+#AutoIt3Wrapper_Res_CompanyName=therkSoft
+#AutoIt3Wrapper_Res_LegalCopyright=Robert Saunders
+#AutoIt3Wrapper_Res_SaveSource=y
 #AutoIt3Wrapper_Run_Before=IF "%fileversion%" NEQ "" COPY "%in%" "%scriptdir%\%scriptfile% (v%fileversion%).au3"
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
