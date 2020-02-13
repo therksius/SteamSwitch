@@ -4,8 +4,13 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5.2
-#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
+#AutoIt3Wrapper_Res_Fileversion=1.5.3.0
+#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=p
+#AutoIt3Wrapper_Res_ProductName=SteamSwitch
+#AutoIt3Wrapper_Res_ProductVersion=1.5.3
+#AutoIt3Wrapper_Res_CompanyName=therkSoft
+#AutoIt3Wrapper_Res_LegalCopyright=Robert Saunders
+#AutoIt3Wrapper_Res_SaveSource=y
 #AutoIt3Wrapper_Run_Before=IF "%fileversion%" NEQ "" COPY "%in%" "%scriptdir%\%scriptfile% (v%fileversion%).au3"
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
@@ -170,11 +175,14 @@ Func Main()
 			; If current profile is offline show the Online button and vice versa
 				$mi_OpenSteam  = GUICtrlCreateMenuItem('&Open Steam Window',  $cm_Banner)
 				$mi_CloseSteam = GUICtrlCreateMenuItem('&Close Steam', $cm_Banner)
-				GUICtrlCreateMenuItem('',  $cm_Banner)
 				If _SteamCheckOffline($CURR_USER) Then
-					$mi_GoOnline   = GUICtrlCreateMenuItem('Restart O&nline',   $cm_Banner)
+					$mi_GoOffline  = GUICtrlCreateMenuItem('&Restart Steam',  $cm_Banner)
+					GUICtrlCreateMenuItem('',  $cm_Banner)
+					$mi_GoOnline   = GUICtrlCreateMenuItem('Go O&nline',   $cm_Banner)
 				Else
-					$mi_GoOffline  = GUICtrlCreateMenuItem('Restart O&ffline',  $cm_Banner)
+					$mi_GoOnline   = GUICtrlCreateMenuItem('&Restart Steam',   $cm_Banner)
+					GUICtrlCreateMenuItem('',  $cm_Banner)
+					$mi_GoOffline  = GUICtrlCreateMenuItem('Go O&ffline',  $cm_Banner)
 				EndIf
 		EndIf
 
@@ -302,10 +310,11 @@ Func Main()
 
 			$aRange_ExtraCtrls[1] = GUICtrlCreateDummy() ; End range
 
-			; Put this outside the range so it doesn't get disabled, and can still trigger from F1. It's placed outside normal range anyway so it won't be visible until the window is expanded.
+			; Put this outside the range so it doesn't get disabled, and can still trigger from accelerator. It's placed outside normal range anyway so it won't be visible until the window is expanded.
 			$lb_Help = GUICtrlCreateLabel('Version: ' & FileGetVersion(@ScriptFullPath), 0, $iTrackHeight, $iWinWidth, 10, $SS_CENTER)
 				GUICtrlSetFont(-1, 6)
 				GUICtrlSetCursor(-1, 4)
+				GUICtrlSetTip(-1, 'View Help file (F1)')
 				$iTrackHeight += 10
 		#endregion
 		; ====================================================================================================================
