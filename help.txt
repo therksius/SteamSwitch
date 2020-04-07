@@ -63,8 +63,8 @@ v1.5.4
 
 v1.5.3
 	- Modified Steam button menu:
-	- Changed "Restart Online/Offline" to "Go Online/Offline"
-	- Added "Restart Steam"
+	- Changed "Restart Online/Offline" to "Go Online/Offline".
+	- Added "Restart Steam".
 
 v1.5.2:
 	- Changed "Manage Users" invalid username detection. Now shows warning instead of silently trying to correct.
