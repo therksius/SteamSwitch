@@ -58,9 +58,12 @@ Uninstall:
 Change log:
 ----------------------
 
+v1.5.4
+	- Better error checking/message for reading user config (reports loginusers.vdf missing, format invalid, or read only).
+
 v1.5.3
 	- Modified Steam button menu:
-	- Changed "Restart Online/Offline" to "Go Online/Offline", 
+	- Changed "Restart Online/Offline" to "Go Online/Offline"
 	- Added "Restart Steam"
 
 v1.5.2:
