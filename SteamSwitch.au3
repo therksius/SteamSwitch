@@ -4,10 +4,10 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5.3.0
+#AutoIt3Wrapper_Res_Fileversion=1.5.4.0
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=p
 #AutoIt3Wrapper_Res_ProductName=SteamSwitch
-#AutoIt3Wrapper_Res_ProductVersion=1.5.3
+#AutoIt3Wrapper_Res_ProductVersion=1.5.4
 #AutoIt3Wrapper_Res_CompanyName=therkSoft
 #AutoIt3Wrapper_Res_LegalCopyright=Robert Saunders
 #AutoIt3Wrapper_Res_SaveSource=y
@@ -612,10 +612,15 @@ Func _SteamLogin($sUsername = $CURR_USER, $iOfflineMode = 0, $sCmdPassthru = '')
 	If $iOfflineMode Then
 		Switch @error
 			Case 1
-				$bReadonly = StringInStr(FileGetAttrib($STEAM_CFG_PATH), 'R')
-				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to write to ' & $STEAM_CFG_PATH & ($bReadonly ? ' - File is read-only' : '') & '. Cannot change offline mode. Continue anyway?', 0, $WMG_HMAIN)
+				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to find user config (' & $STEAM_CFG_PATH & ').' & @LF & _
+					'Cannot change offline mode. Continue anyway?', 0, $WMG_HMAIN)
 			Case 2
-				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to find and write user config (possible first time login?). Cannot change offline mode. Continue anyway?', 0, $WMG_HMAIN)
+				$iMsgBox = MsgBox(0x31, 'Warning', 'User config badly formatted.' & @LF & _
+					'Cannot change offline mode. Continue anyway?', 0, $WMG_HMAIN)
+			Case 3
+				$bReadonly = StringInStr(FileGetAttrib($STEAM_CFG_PATH), 'R')
+				$iMsgBox = MsgBox(0x31, 'Warning', 'Unable to write to user config' & ($bReadonly ? ' (file is read-only)' : '') & '.' & @LF & _
+					'Cannot change offline mode. Continue anyway?', 0, $WMG_HMAIN)
 		EndSwitch
 
 		If $iMsgBox = 2 Then Return GUISetState(@SW_SHOW, $WMG_HMAIN)
@@ -632,7 +637,7 @@ EndFunc
 
 Func _SteamConfig($sUser, $bOffline = Default) ; Steam config file modifier, toggles offline mode on/off
 	#cs
-	The loginusers.vdf file is formatted as such:
+	The loginusers.vdf file should be formatted as such:
 	"users"
 	{
 		"STEAM-USER-ID"
@@ -721,12 +726,17 @@ Func _SteamConfig($sUser, $bOffline = Default) ; Steam config file modifier, tog
 	and write the combined data to the config file.
 	#ce
 
+	If Not FileExists($STEAM_CFG_PATH) Then Return SetError(1, 0, 0)
+
 	Local $sNewConfig, $aSegments, $hFile, _
 		$iTimestamp = _DateDiff('s', '1970/01/01 00:00:00', _NowCalc()), _ ; Get UNIX timestamp
 		$sConfigData = FileRead($STEAM_CFG_PATH) ; Read in loginusers.vdf
 
 	$aSegments = StringRegExp($sConfigData, '(?si)^(.*{)(.*?"AccountName"\s*"'& $sUser & '".*?)(}.*)$', 1) ; Isolate user segment for rewrite.
-	If UBound($aSegments) = 3 Then
+	If UBound($aSegments) <> 3 Then
+		; Could not interpret file data
+		Return SetError(2, 0, 0)
+	Else
 		; If Offline mode isn't specifically set, check the current offline mode.
 		If $bOffline = Default Then $bOffline = StringRegExp($aSegments[1], '(?i)"WantsOfflineMode"\s*"1"')
 
@@ -757,10 +767,9 @@ Func _SteamConfig($sUser, $bOffline = Default) ; Steam config file modifier, tog
 			FileClose($hFile)
 			Return 1
 		Else
-			Return SetError(1, 0, 0)
+			Return SetError(3, 0, 0)
 		EndIf
 	EndIf
-	Return SetError(2, 0, 0)
 EndFunc
 
 
