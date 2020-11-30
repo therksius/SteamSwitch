@@ -4,10 +4,10 @@
 #AutoIt3Wrapper_UseX64=y
 #AutoIt3Wrapper_Res_Comment=SteamSwitch
 #AutoIt3Wrapper_Res_Description=SteamSwitch
-#AutoIt3Wrapper_Res_Fileversion=1.5.4.0
+#AutoIt3Wrapper_Res_Fileversion=1.5.5.0
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=p
 #AutoIt3Wrapper_Res_ProductName=SteamSwitch
-#AutoIt3Wrapper_Res_ProductVersion=1.5.4
+#AutoIt3Wrapper_Res_ProductVersion=1.5.5
 #AutoIt3Wrapper_Res_CompanyName=therkSoft
 #AutoIt3Wrapper_Res_LegalCopyright=Robert Saunders
 #AutoIt3Wrapper_Res_SaveSource=y
@@ -30,7 +30,7 @@
 
 Opt('MustDeclareVars', 1)
 
-Global Const $DEBUG = False
+Global Const $DEBUG = false
 Global Const $STEAM_REG = 'HKCU\Software\Valve\Steam'
 Global Const $STEAM_EXE = StringReplace(RegRead($STEAM_REG, 'SteamExe'), '/', '\')
 Global Const $STEAM_PATH = StringReplace(RegRead($STEAM_REG, 'SteamPath'), '/', '\')
@@ -41,7 +41,6 @@ Global Const $CURR_USER = RegRead($STEAM_REG, $REG_USERNAME)
 Global Const $CFG_PATH = @AppDataDir & '\therkSoft\SteamSwitch\'
 Global Const $HELP_FILE = $CFG_PATH & 'help.txt'
 Global Const $USERS_FILE = $CFG_PATH & 'userlist.cfg'
-Global Const $WAIT_ANIM = $CFG_PATH & 'waiting.ani'
 Global Const $AVATAR_PATH = $CFG_PATH & 'avatars\'
 Global Const $NO_AVATAR = $AVATAR_PATH & '.none.gif'
 Global Const $DEFAULT_AV = $AVATAR_PATH & '.default.gif'
@@ -73,7 +72,7 @@ Func Main()
 
 	_Migrate() ; Migrate old config files to new locations
 
-	; Install waiting animation and default avatar
+	; Install external files
 	FileInstall('help.txt', $HELP_FILE, 1)
 	FileInstall('SteamSwitch_None.gif', $NO_AVATAR)
 	FileInstall('SteamSwitch_Default.gif', $DEFAULT_AV)
@@ -349,6 +348,8 @@ Func Main()
 
 	; ====================================================================================================================
 
+	If $DEBUG Then Exit _SteamClose()
+
 	GUISetState(@SW_SHOWNORMAL, $WMG_HMAIN)
 
 	If $sDownloadList Then _DownloadAvatars($sDownloadList) ; Start avatar downloads if necessary
@@ -511,16 +512,16 @@ Func _SteamPID() ; Get process ID of Steam process if it matches $STEAM_EXE path
 EndFunc
 
 Func _SteamClose() ; Close Steam window
-	Static $hGUIWait, $lb_Wait[15], $bt_Cancel, $bt_Kill
-	Local $GM, $iSteamPID, $iTimer, $iAniTimer, $iAniStep = 0, $iAniPhase = 1, $iAniDelay = 200
+	Static $hGUIWait, $iDotLen = 5, $lb_Wait[$iDotLen], $bt_Cancel, $bt_Kill
+	Local $GM, $iSteamPID, $iTimer, $iAniTimer, $iAniStep = 0, $iAniPhase = 1, $iAniDelay = 10
 
 	If Not $hGUIWait Then
-		$hGUIWait = GUICreate('Please wait...', 200, 135, Default, Default, Default, $WS_EX_TOOLWINDOW, $WMG_HMAIN)
+		$hGUIWait = GUICreate('Please wait...', 200, 135, Default, Default, Default, BitOR($WS_EX_TOOLWINDOW, $WS_EX_COMPOSITED), $WMG_HMAIN)
 		GUICtrlCreateLabel('Closing Steam...', 0, 15, 200, 30, $SS_CENTER)
 			GUICtrlSetFont(-1, 12, 700)
-		For $i = 0 To 4 ; Only define a portion of the dot labels, this simulates the delay between each animation cycle
-			$lb_Wait[$i] = GUICtrlCreateLabel('•', 25+ $i * 30, 50, 30, 30, BitOR($SS_CENTER, $SS_CENTERIMAGE))
-				GUICtrlSetFont(-1, 50)
+		For $i = 0 To $iDotLen-1
+			$lb_Wait[$i] = GUICtrlCreateLabel('●', 25 + $i * 30, 40, 30, 40, BitOR($SS_CENTER, $SS_CENTERIMAGE))
+				GUICtrlSetFont(-1, 35)
 		Next
 		$bt_Cancel = GUICtrlCreateButton('Cancel', 20, 100, 75, 25)
 		$bt_Kill = GUICtrlCreateButton('Force Close', 105, 100, 75, 25)
@@ -546,16 +547,16 @@ Func _SteamClose() ; Close Steam window
 
 					If TimerDiff($iAniTimer) > $iAniDelay Then
 						$iAniTimer = TimerInit()
-						$iAniDelay = 200
+						$iAniDelay = 150
 						If $iAniPhase Then
-							GUICtrlSetColor($lb_Wait[$iAniStep], 0x66c0f4)
+							GUICtrlSetColor($lb_Wait[$iAniStep], 0x66bbff)
 						Else
 							GUICtrlSetColor($lb_Wait[$iAniStep], 0)
 						EndIf
 
-						$iAniStep = Mod($iAniStep + 1, 5)
+						$iAniStep = Mod($iAniStep + 1, $iDotLen)
 						If Not $iAniStep Then
-							$iAniDelay *= 2
+							$iAniDelay *= 3
 							$iAniPhase = Mod($iAniPhase+1, 2)
 						EndIf
 					EndIf
@@ -932,7 +933,7 @@ Func _CheckDownloads() ; Adlib function to check if avatar downloads have comple
 EndFunc
 
 Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloading background process
-	Local $sAvatarPath, $sAvatarURL, $sAvatarPattern = '(?i)(\Qhttps://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/\E.+?_medium\.jpg)', _
+	Local $sAvatarPath, $sAvatarURL, $sAvatarPattern = '(?i)(https://.+?/steamcommunity/public/images/avatars/.+?_medium\.jpg)', _
 		$sProfilePage, $aRegEx, $sSearchHTML, $oJSON, $iDownload
 
 	; If given a list this function launches a background process to handle downloads.
@@ -953,6 +954,10 @@ Func _DownloadAvatars($sDownloadList = '') ; Start and monitor avatar downloadin
 				$aRegEx = StringRegExp($sProfilePage, $sAvatarPattern, 1) ; Look for the avatar string.
 				If Not @error Then $sAvatarURL = $aRegEx[0]
 			EndIf
+
+;~ 			FileWrite(@TempDir & '\t.txt', $sProfilePage)
+;~ 			ShellExecute(@TempDir & '\t.txt')
+;~ 			MsgBox(0,0,$sAvatarURL)
 
 			; If profile page not loaded, or avatar not found on page
 			If Not $sAvatarURL Then ; Try the search page method...

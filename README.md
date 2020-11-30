@@ -72,6 +72,9 @@ Any and all data stored by the application is in an AppData subfolder, so if you
 
 ### Change log:
 
+##### v1.5.5
+- Fixed issue downloading avatars. Steam changed their CDN (was looking for steamcdn-a.akamaihd.net, but the CDN is now cdn.cloudflare.steamstatic.com). The check should be more flexible now.
+
 ##### v1.5.4
 - Better error checking/message for reading user config (reports loginusers.vdf missing, format invalid, or read only).
 
